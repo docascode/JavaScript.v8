@@ -3,4 +3,7 @@ updates:
 - package-ecosystem: nuget
   directory: "/"
   schedule:
-    interval: daily
+    interval: live
+- package_manager: "rust:cargo"
+  directory: "/"
+  update_schedule: live
