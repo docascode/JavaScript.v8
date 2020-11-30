@@ -1,0 +1,29 @@
+name: Build
+on: push
+jobs:
+  build:
+    runs-on: linux-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --release --all-features
+    - uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release --all-features
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.100
+    - run: dotnet test -c Release
+    - run: dotnet pack -c Release $pwd/drop
+    - if: |
+        (github.event_name == 'create' && github.event.ref_type == 'tag') ||
+        (github.event_name == 'push' && github.event.ref == 'refs/heads/preview')
+      run: dotnet nuget push drop/**/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
+      env:
+        NUGET_KEY: ${{ secrets.NUGET_KEY }}

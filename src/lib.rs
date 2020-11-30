@@ -1,10 +1,22 @@
+// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
 use rusty_v8 as v8;
 
-pub fn main() {
-    let platform = v8::new_default_platform().unwrap();
-    v8::V8::initialize_platform(platform);
-    v8::V8::initialize();
+pub struct JsEngine(v8::OwnedIsolate);
 
+#[no_mangle]
+pub extern "C" fn js_init() {
+    v8::V8::initialize_platform(v8::new_default_platform().unwrap());
+    v8::V8::initialize();
+}
+
+#[no_mangle]
+pub extern "C" fn js_new() -> *mut JsEngine {
+    &mut JsEngine(v8::Isolate::new(Default::default()))
+}
+
+pub fn a() {
     let isolate = &mut v8::Isolate::new(Default::default());
 
     let scope = &mut v8::HandleScope::new(isolate);
@@ -18,4 +30,12 @@ pub fn main() {
     let result = script.run(scope).unwrap();
     let result = result.to_string(scope).unwrap();
     println!("result: {}", result.to_rust_string_lossy(scope));
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
 }
