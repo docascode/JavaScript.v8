@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <RustTarget>$(MSBuildThisFileDirectory)/../../rust/target/release</RustTarget>
+    <RustTarget>$(MSBuildThisFileDirectory)/../../rust/target/$(Configuration.ToLower())</RustTarget>
   </PropertyGroup>
 
   <ItemGroup>
