@@ -5,7 +5,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, linux-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
     - uses: actions/checkout@v1
     - uses: actions-rs/toolchain@v1
@@ -21,7 +21,7 @@ jobs:
         path: rust/target/release/*docfxjsv8*.*
 
   dotnet:
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
     - uses: actions/setup-dotnet@v1
@@ -37,7 +37,7 @@ jobs:
         path: rust/target/release
     - uses: actions/download-artifact@v2
       with:
-        name: lib-linux-latest
+        name: lib-ubuntu-latest
         path: rust/target/release
     - run: dotnet test -c Release
       working-directory: dotnet
@@ -49,7 +49,7 @@ jobs:
         path: $pwd/drop/*.nupkg
 
   publish:
-    runs-on: linux-latest
+    runs-on: ubuntu-latest
     if: "github.event.ref == 'refs/heads/preview'"
     steps:
     - uses: actions/download-artifact@v2
