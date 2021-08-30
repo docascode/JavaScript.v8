@@ -22,6 +22,8 @@ jobs:
     - run: dotnet test -c Release
       working-directory: dotnet
       continue-on-error: true
+      env:
+        LD_DEBUG: true
 
     - uses: actions/upload-artifact@v2
       with:
