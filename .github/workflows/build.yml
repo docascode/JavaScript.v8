@@ -1,13 +1,14 @@
 name: build
 on: push
 jobs:
-  rust:
+  build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
     - uses: actions/checkout@v1
+
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
@@ -20,8 +21,14 @@ jobs:
         name: lib-${{ matrix.os }}
         path: rust/target/release/*docfxjsv8*.*
 
-  dotnet:
-    needs: rust
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.400
+    - run: dotnet test -c Release
+      working-directory: dotnet
+
+  pack:
+    needs: build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -50,7 +57,7 @@ jobs:
         path: $pwd/drop/*.nupkg
 
   publish:
-    needs: dotnet
+    needs: pack
     runs-on: ubuntu-latest
     if: "github.event.ref == 'refs/heads/preview'"
     steps:
