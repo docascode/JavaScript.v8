@@ -1,9 +1,10 @@
 version: 2
 updates:
 - package-ecosystem: nuget
-  directory: "/"
+  directory: "dotnet"
   schedule:
-    interval: daily
-- package_manager: "rust:cargo"
-  directory: "/"
-  update_schedule: daily
+    interval: weekly
+- package-ecosystem: "cargo"
+  directory: "rust"
+  schedule:
+    interval: weekly

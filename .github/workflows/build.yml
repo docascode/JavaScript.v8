@@ -1,0 +1,69 @@
+name: build
+on: push
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.400
+
+    - run: cargo test --release
+      working-directory: rust
+    - run: cargo build --release
+      working-directory: rust
+    - run: dotnet test -c Release
+      working-directory: dotnet
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: lib-${{ matrix.os }}
+        path: rust/target/release/*docfxjsv8*.*
+
+  pack:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.400
+    - uses: actions/download-artifact@v2
+      with:
+        name: lib-windows-latest
+        path: rust/target/release
+    - uses: actions/download-artifact@v2
+      with:
+        name: lib-macos-latest
+        path: rust/target/release
+    - uses: actions/download-artifact@v2
+      with:
+        name: lib-ubuntu-latest
+        path: rust/target/release
+    - run: dotnet test -c Release
+      working-directory: dotnet
+    - run: dotnet pack -c Release -o $RUNNER_TEMP
+      working-directory: dotnet
+    - uses: actions/upload-artifact@v2
+      with:
+        name: nupkg
+        path: $RUNNER_TEMP/**/*.nupkg
+
+  publish:
+    needs: pack
+    runs-on: ubuntu-latest
+    if: "github.event.ref == 'refs/heads/preview'"
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: nupkg
+    - run: dotnet nuget push nupkg/**/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
+      env:
+        NUGET_KEY: ${{ secrets.NUGET_KEY }}
