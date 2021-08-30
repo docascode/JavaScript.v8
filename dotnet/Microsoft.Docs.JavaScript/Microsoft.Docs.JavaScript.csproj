@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <RustTarget>$(MSBuildThisFileDirectory)/../../rust/target/$(Configuration)</RustTarget>
+    <RustTarget>$(MSBuildThisFileDirectory)/../../rust/target/release</RustTarget>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="$(RustTarget)/docfxjsv8.dll" Condition="Exists('$(RustTarget)/docfxjsv8.dll')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
     <None Include="$(RustTarget)/libdocfxjsv8.dylib" Condition="Exists('$(RustTarget)/libdocfxjsv8.dylib')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(RustTarget)/libdocfxjsv8.so" Pack="true" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(RustTarget)/libdocfxjsv8.so" Condition="Exists('$(RustTarget)/libdocfxjsv8.so')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
