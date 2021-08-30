@@ -8,24 +8,25 @@ jobs:
         os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
     - uses: actions/checkout@v1
-
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+    - uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.400
+
     - run: cargo test --release
       working-directory: rust
     - run: cargo build --release
       working-directory: rust
+    - run: dotnet test -c Release
+      working-directory: dotnet
+      continue-on-error: true
+
     - uses: actions/upload-artifact@v2
       with:
         name: lib-${{ matrix.os }}
         path: rust/target/release/*docfxjsv8*.*
-
-    - uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 5.0.400
-    - run: dotnet test -c Release
-      working-directory: dotnet
 
   pack:
     needs: build
