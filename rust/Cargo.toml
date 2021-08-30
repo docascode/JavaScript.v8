@@ -1,5 +1,5 @@
 [package]
-name = "docfx-v8"
+name = "docfxv8"
 version = "0.1.0"
 
 [lib]
