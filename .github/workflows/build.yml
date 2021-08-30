@@ -49,8 +49,8 @@ jobs:
         path: $pwd/drop/*.nupkg
 
   publish:
-    if: 'github.event.ref == 'refs/heads/preview'
     runs-on: linux-latest
+    if: "github.event.ref == 'refs/heads/preview'"
     steps:
     - uses: actions/download-artifact@v2
       with:
