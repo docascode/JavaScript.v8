@@ -21,6 +21,7 @@ jobs:
         path: rust/target/release/*docfxjsv8*.*
 
   dotnet:
+    runs-on: linux-latest
     steps:
     - uses: actions/checkout@v1
     - uses: actions/setup-dotnet@v1
@@ -48,13 +49,12 @@ jobs:
         path: $pwd/drop/*.nupkg
 
   publish:
+    if: 'github.event.ref == 'refs/heads/preview'
+    runs-on: linux-latest
     steps:
     - uses: actions/download-artifact@v2
       with:
         name: nupkg
-    - if: |
-        (github.event_name == 'create' && github.event.ref_type == 'tag') ||
-        (github.event_name == 'push' && github.event.ref == 'refs/heads/preview')
-      run: dotnet nuget push nupkg/**/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
+    - run: dotnet nuget push nupkg/**/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
       env:
         NUGET_KEY: ${{ secrets.NUGET_KEY }}
