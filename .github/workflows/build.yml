@@ -48,7 +48,7 @@ jobs:
         path: $pwd/drop/*.nupkg
 
   publish:
-    steps
+    steps:
     - uses: actions/download-artifact@v2
       with:
         name: nupkg
