@@ -6,24 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="$(RustTarget)/docfxjsv8.dll" Condition="Exists('$(RustTarget)/docfxjsv8.dll')">
-      <LinkBase>runtimes/win-x64/native</LinkBase>
-      <PackagePath>runtimes/win-x64/native</PackagePath>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-    </None>
-    <None Include="$(RustTarget)/libdocfxjsv8.dylib" Condition="Exists('$(RustTarget)/libdocfxjsv8.dylib')">
-      <LinkBase>runtimes/osx-x64/native</LinkBase>
-      <PackagePath>runtimes/osx-x64/native</PackagePath>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-    </None>
-    <None Include="$(RustTarget)/libdocfxjsv8.so" Condition="Exists('$(RustTarget)/libdocfxjsv8.so')">
-      <LinkBase>runtimes/linux-x64/native</LinkBase>
-      <PackagePath>runtimes/linux-x64/native</PackagePath>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-    </None>
+    <None Include="$(RustTarget)/docfxjsv8.dll" Condition="Exists('$(RustTarget)/docfxjsv8.dll')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(RustTarget)/libdocfxjsv8.dylib" Condition="Exists('$(RustTarget)/libdocfxjsv8.dylib')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(RustTarget)/libdocfxjsv8.so" Condition="Exists('$(RustTarget)/libdocfxjsv8.so')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

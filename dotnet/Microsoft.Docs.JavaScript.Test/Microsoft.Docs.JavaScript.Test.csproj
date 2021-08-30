@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Project Include="../Microsoft.Docs.JavaScript/Microsoft.Docs.JavaScript.csproj" />
+    <ProjectReference Include="../Microsoft.Docs.JavaScript/Microsoft.Docs.JavaScript.csproj" />
   </ItemGroup>
 
   <ItemGroup>
