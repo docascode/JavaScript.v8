@@ -21,6 +21,7 @@ jobs:
         path: rust/target/release/*docfxjsv8*.*
 
   dotnet:
+    needs: rust
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -49,6 +50,7 @@ jobs:
         path: $pwd/drop/*.nupkg
 
   publish:
+    needs: dotnet
     runs-on: ubuntu-latest
     if: "github.event.ref == 'refs/heads/preview'"
     steps:
