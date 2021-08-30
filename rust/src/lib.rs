@@ -48,7 +48,7 @@ pub struct JsonWriter {
 static V8_INITIALIZE: Once = Once::new();
 
 #[no_mangle]
-pub extern "C" fn js_new() -> *mut v8::OwnedIsolate {
+pub extern "C" fn js_new_isolate() -> *mut v8::OwnedIsolate {
     V8_INITIALIZE.call_once(|| {
         let platform = v8::new_default_platform(0, false).make_shared();
         v8::V8::initialize_platform(platform);
