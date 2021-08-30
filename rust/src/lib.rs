@@ -1,13 +1,16 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+extern crate rusty_v8;
+
 use rusty_v8 as v8;
 
 pub struct JsEngine(v8::OwnedIsolate);
 
 #[no_mangle]
 pub extern "C" fn js_init() {
-    v8::V8::initialize_platform(v8::new_default_platform().unwrap());
+    let platform = v8::new_default_platform(0, false).make_shared();
+    v8::V8::initialize_platform(platform);
     v8::V8::initialize();
 }
 
