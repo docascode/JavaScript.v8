@@ -49,12 +49,12 @@ jobs:
         path: rust/target/release
     - run: dotnet test -c Release
       working-directory: dotnet
-    - run: dotnet pack -c Release $pwd/drop
+    - run: dotnet pack -c Release -o $RUNNER_TEMP
       working-directory: dotnet
     - uses: actions/upload-artifact@v2
       with:
         name: nupkg
-        path: $pwd/drop/*.nupkg
+        path: $RUNNER_TEMP/**/*.nupkg
 
   publish:
     needs: pack
