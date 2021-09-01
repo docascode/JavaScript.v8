@@ -23,10 +23,17 @@ pub struct JsonReader {
 
 }
 
+#[repr(C)]
+pub struct WriteJsonStringCopyState<'a, 'b> {
+    value: v8::Local<'a, v8::String>,
+    scope: &'b mut v8::HandleScope<'a>,
+}
+
 type WriteJsonNone = fn();
 type WriteJsonInt = fn(i64);
 type WriteJsonNumber = fn(f64);
-type WriteJsonString = fn(usize) -> *mut u16;
+type WriteJsonString = fn(length: usize, copy: WriteJsonStringCopy, state: *mut WriteJsonStringCopyState);
+type WriteJsonStringCopy = fn(buffer: *mut u16, length: usize, state: *mut WriteJsonStringCopyState);
 
 #[repr(C)]
 pub struct JsonWriter {
@@ -34,7 +41,6 @@ pub struct JsonWriter {
     write_null: WriteJsonNone,
     write_true: WriteJsonNone,
     write_false: WriteJsonNone,
-    write_array: WriteJsonInt,
     write_int: WriteJsonInt,
     write_number: WriteJsonNumber,
     write_string: WriteJsonString,
@@ -59,10 +65,10 @@ pub extern "C" fn js_new_isolate() -> *mut v8::OwnedIsolate {
 }
 
 #[no_mangle]
-pub extern "C" fn js_run(isolate: *mut v8::OwnedIsolate, code: *mut u16, length: usize, writer: *mut JsonWriter) -> i32 {
+pub extern "C" fn js_run(isolate: *mut v8::OwnedIsolate, code: *const u16, length: usize, writer: *const JsonWriter) -> i32 {
     let isolate = unsafe { isolate.as_mut().unwrap() };
     let code = unsafe { std::slice::from_raw_parts(code, length) };
-    let writer = unsafe { writer.as_mut().unwrap() };
+    let writer = unsafe { &*writer };
 
     let scope = &mut v8::HandleScope::new(isolate);
     let context = v8::Context::new(scope);
@@ -76,7 +82,7 @@ pub extern "C" fn js_run(isolate: *mut v8::OwnedIsolate, code: *mut u16, length:
     0
 }
 
-fn write_json(scope: &mut v8::HandleScope, writer: &mut JsonWriter, value: v8::Local<v8::Value>) {
+fn write_json(scope: &mut v8::HandleScope, writer: & JsonWriter, value: v8::Local<v8::Value>) {
     if value.is_undefined() {
         (writer.write_undefined)();
     } else if value.is_null() {
@@ -117,7 +123,25 @@ fn write_json(scope: &mut v8::HandleScope, writer: &mut JsonWriter, value: v8::L
 
 fn write_json_string(scope: &mut v8::HandleScope, write: WriteJsonString, value: v8::Local<v8::Value>) {
     let value = value.to_string(scope).unwrap();
-    let buffer = write(value.length());
-    let buffer = unsafe { std::slice::from_raw_parts_mut(buffer, value.length()) };
-    value.write(scope, buffer, 0, v8::WriteOptions::NO_OPTIONS);
+    let mut state = WriteJsonStringCopyState
+    {
+        value: value,
+        scope: scope,
+    };
+
+    write(value.length(), write_json_string_copy, &mut state);
+}
+
+fn write_json_string_copy(buffer: *mut u16, length: usize, state: *mut WriteJsonStringCopyState) {
+    let state = unsafe { &mut *state };
+    let buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
+    state.value.write(state.scope, buffer, 0, v8::WriteOptions::NO_OPTIONS);
+}
+
+#[test]
+fn test_run_javascript() {
+    let isolate = js_new_isolate();
+    let code = "1+2".encode_utf16().collect::<Vec<u16>>();
+    let success = js_run(isolate, code.as_ptr(), code.len(), std::ptr::null());
+    assert_eq!(success, 0);
 }
