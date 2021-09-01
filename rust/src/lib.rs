@@ -61,7 +61,14 @@ pub extern "C" fn js_new_isolate() -> *mut v8::OwnedIsolate {
         v8::V8::initialize();
     });
 
-    &mut v8::Isolate::new(Default::default())
+    let isolate = v8::Isolate::new(Default::default());
+    let isolate = Box::new(isolate);
+    Box::into_raw(isolate)
+}
+
+#[no_mangle]
+pub extern "C" fn js_delete_isolate(isolate: *mut v8::OwnedIsolate) {
+    unsafe { Box::from_raw(isolate) };
 }
 
 #[no_mangle]
@@ -91,11 +98,10 @@ fn write_json(scope: &mut v8::HandleScope, writer: & JsonWriter, value: v8::Loca
         (writer.write_true)();
     } else if value.is_false() {
         (writer.write_false)();
+    } else if value.is_int32() {
+        (writer.write_int)(value.integer_value(scope).unwrap());
     } else if value.is_number() {
-        match value.integer_value(scope) {
-            Some(value) => (writer.write_int)(value),
-            _ => (writer.write_number)(value.number_value(scope).unwrap()),
-        };
+        (writer.write_number)(value.number_value(scope).unwrap());
     } else if value.is_string() {
         write_json_string(scope, writer.write_string, value);
     } else if value.is_array() {
@@ -144,4 +150,5 @@ fn test_run_javascript() {
     let code = "1+2".encode_utf16().collect::<Vec<u16>>();
     let success = js_run(isolate, code.as_ptr(), code.len(), std::ptr::null());
     assert_eq!(success, 0);
+    js_delete_isolate(isolate);
 }

@@ -3,22 +3,10 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Docs.Build
 {
-    [StructLayout(LayoutKind.Sequential)]
-    internal readonly struct JsIsolate
-    {
-        private readonly IntPtr Pointer;
-    };
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal readonly struct JsonWriteStringState
-    {
-        private readonly IntPtr Pointer;
-    };
-
     internal delegate void JsonWriteInt(long value);
     internal delegate void JsonWriteNumber(double value);
-    internal unsafe delegate void JsonWriteStringDelegate(nuint length, JsonWriteStringCopyDelegate copy, JsonWriteStringState state);
-    internal unsafe delegate void JsonWriteStringCopyDelegate(char* buffer, nuint length, JsonWriteStringState state);
+    internal unsafe delegate void JsonWriteStringDelegate(nuint length, JsonWriteStringCopyDelegate copy, IntPtr state);
+    internal unsafe delegate void JsonWriteStringCopyDelegate(char* buffer, nuint length, IntPtr state);
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct JsonWriter
@@ -40,9 +28,12 @@ namespace Microsoft.Docs.Build
     internal static unsafe class NativeMethods
     {
         [DllImport("docfxjsv8")]
-        public static extern JsIsolate js_new_isolate();
+        public static extern IntPtr js_new_isolate();
 
         [DllImport("docfxjsv8")]
-        public static extern int js_run(JsIsolate isolate, char* code, nuint length, ref JsonWriter writer);
+        public static extern int js_run(IntPtr isolate, char* code, nuint length, ref JsonWriter writer);
+
+        [DllImport("docfxjsv8")]
+        public static extern void js_delete_isolate(IntPtr isolate);
     }
 }

@@ -4,9 +4,6 @@
     <TargetFramework>net5.0</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RustTarget>$(MSBuildThisFileDirectory)/../../rust/target/$(Configuration.ToLower())</RustTarget>
-    <ApplicationIcon />
-    <OutputType>Exe</OutputType>
-    <StartupObject />
   </PropertyGroup>
 
   <ItemGroup>

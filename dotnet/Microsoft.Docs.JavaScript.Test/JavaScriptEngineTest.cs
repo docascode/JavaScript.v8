@@ -5,15 +5,25 @@ using Xunit;
 
 namespace Microsoft.Docs.Build
 {
-    public class JavaScriptEngineTest
+    public class JavaScriptEngineTest : IClassFixture<JavaScriptEngine>
     {
+        private readonly JavaScriptEngine _js;
+
+        public JavaScriptEngineTest(JavaScriptEngine js) => _js = js;
+
         [Theory]
-        [InlineData("1 + 2", "'1'")]
+        [InlineData("1 + 2", "3")]
+        [InlineData("1 + 'a'", "'1a'")]
+        [InlineData("null", "null")]
+        [InlineData("undefined", "null")]
+        [InlineData("'hello' + ' world'", "'hello world'")]
+        [InlineData("[1,3.14,21474836470,-2147483647]", "[1,3.14,21474836470,-2147483647]")]
+        [InlineData("{a:0,b:{c:[]}}", "{'a':0,'b':{'c':[]}}")]
         public void RunJavaScript(string code, string output)
         {
             var writer = new JsonWriter();
-            new JavaScriptEngine().Run(code, "", null, writer);
-            Assert.Equal(output, writer.ToString().Replace('\"', '\''));
+            _js.Run(code, "", null, writer);
+            Assert.Equal(output, writer.GetString().Replace('\"', '\''));
         }
 
         private class JsonWriter : IJsonWriter
@@ -23,7 +33,13 @@ namespace Microsoft.Docs.Build
 
             public JsonWriter() => _writer = new Utf8JsonWriter(_buffer);
 
-            public override string ToString() => Encoding.UTF8.GetString(_buffer.WrittenSpan);
+            public string GetString()
+            {
+                _writer.Flush();
+                return Encoding.UTF8.GetString(_buffer.WrittenSpan);
+            }
+
+            public void Flush() => _writer.Flush();
 
             public void WriteEndArray() => _writer.WriteEndArray();
 
