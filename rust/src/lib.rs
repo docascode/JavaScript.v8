@@ -6,55 +6,146 @@ extern crate rusty_v8;
 use rusty_v8 as v8;
 use std::sync::Once;
 
+static V8_INITIALIZE: Once = Once::new();
+
 #[repr(C)]
-pub enum JsonValueKind {
+pub enum JsValueType {
+    Unknown,
     Undefined,
     Object,
     Array,
     String,
+    Integer,
     Number,
     True,
     False,
     Null,
+    Function,
 }
-
-#[repr(C)]
-pub struct JsonReader {
-
-}
-
-#[repr(C)]
-pub struct WriteJsonStringCopyState<'a, 'b> {
-    value: v8::Local<'a, v8::String>,
-    scope: &'b mut v8::HandleScope<'a>,
-}
-
-type WriteJsonNone = fn();
-type WriteJsonInt = fn(i64);
-type WriteJsonNumber = fn(f64);
-type WriteJsonString = fn(length: usize, copy: WriteJsonStringCopy, state: *mut WriteJsonStringCopyState);
-type WriteJsonStringCopy = fn(buffer: *mut u16, length: usize, state: *mut WriteJsonStringCopyState);
-
-#[repr(C)]
-pub struct JsonWriter {
-    write_undefined: WriteJsonNone,
-    write_null: WriteJsonNone,
-    write_true: WriteJsonNone,
-    write_false: WriteJsonNone,
-    write_int: WriteJsonInt,
-    write_number: WriteJsonNumber,
-    write_string: WriteJsonString,
-    write_start_array: WriteJsonInt,
-    write_end_array: WriteJsonNone,
-    write_start_object: WriteJsonNone,
-    write_property_name: WriteJsonString,
-    write_end_object: WriteJsonNone,
-}
-
-static V8_INITIALIZE: Once = Once::new();
 
 #[no_mangle]
-pub extern "C" fn js_new_isolate() -> *mut v8::OwnedIsolate {
+pub extern "C" fn js_value_type(value: v8::Local<v8::Value>) ->JsValueType {
+    if value.is_undefined() {
+        return JsValueType::Undefined;
+    } else if value.is_null() {
+        return JsValueType::Null;
+    } else if value.is_true() {
+        return JsValueType::True;
+    } else if value.is_false() {
+        return JsValueType::False;
+    } else if value.is_int32() {
+        return JsValueType::Integer;
+    } else if value.is_number() {
+        return JsValueType::Number;
+    } else if value.is_string() {
+        return JsValueType::String;
+    } else if value.is_array() {
+        return JsValueType::Array;
+    } else if value.is_object() {
+        return JsValueType::Object;
+    } else if value.is_function() {
+        return JsValueType::Function;
+    } else {
+        return JsValueType::Unknown;
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn js_value_as_integer<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::Value>
+) -> i64 {
+    return value.integer_value(scope).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_value_as_number<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::Value>
+) -> f64 {
+    return value.number_value(scope).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_object_get_own_property_names<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::Object>
+) -> v8::Local<'a, v8::Array> {
+    return value.get_own_property_names(scope).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_object_get_property<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::Object>,
+    key: v8::Local<'a, v8::Value>,
+) -> v8::Local<'a, v8::Value> {
+    return value.get(scope, key).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_array_length<'a>(
+    value: v8::Local<'a, v8::Array>
+) -> u32 {
+    return value.length();
+}
+
+#[no_mangle]
+pub extern "C" fn js_array_get_index<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::Array>,
+    index: u32,
+) -> v8::Local<'a, v8::Value> {
+    return value.get_index(scope, index).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_string_new<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    chars: *const u16,
+    length: usize
+) -> v8::Local<'a, v8::String> {
+    let string = unsafe { std::slice::from_raw_parts(chars, length) };
+    let string = v8::String::new_from_two_byte(scope, string, v8::NewStringType::Normal).unwrap();
+    string
+}
+
+#[no_mangle]
+pub extern "C" fn js_string_length<'a>(value: v8::Local<'a, v8::String>) -> usize {
+    value.length()
+}
+
+#[no_mangle]
+pub extern "C" fn js_string_copy<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::String>,
+    buffer: *mut u16,
+    length: usize
+) {
+    let buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
+    value.write(scope, buffer, 0, v8::WriteOptions::NO_OPTIONS);
+}
+
+#[no_mangle]
+pub extern "C" fn js_function_call<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    value: v8::Local<'a, v8::Function>,
+    recv: v8::Local<'a, v8::Value>,
+    argv: *const v8::Local<'a, v8::Value>,
+    argc: usize,
+    error: JsResult,
+    result: JsResult,
+) {
+    let mut scope = v8::TryCatch::new(scope);
+    let args = unsafe { std::slice::from_raw_parts(argv, argc) };
+    match value.call(&mut scope, recv, args) {
+        Some(value) => (result)(&mut scope, value),
+        None => report_errors(scope, error),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn js_isolate_new() -> *mut v8::OwnedIsolate {
     V8_INITIALIZE.call_once(|| {
         let platform = v8::new_default_platform(0, false).make_shared();
         v8::V8::initialize_platform(platform);
@@ -67,88 +158,53 @@ pub extern "C" fn js_new_isolate() -> *mut v8::OwnedIsolate {
 }
 
 #[no_mangle]
-pub extern "C" fn js_delete_isolate(isolate: *mut v8::OwnedIsolate) {
+pub extern "C" fn js_isolate_delete(isolate: *mut v8::OwnedIsolate) {
     unsafe { Box::from_raw(isolate) };
 }
 
+type JsRun = extern fn(scope: &mut v8::HandleScope);
+
 #[no_mangle]
-pub extern "C" fn js_run(isolate: *mut v8::OwnedIsolate, code: *const u16, length: usize, writer: *const JsonWriter) -> i32 {
+pub extern "C" fn js_run_in_context(isolate: *mut v8::OwnedIsolate, callback: JsRun) {
     let isolate = unsafe { isolate.as_mut().unwrap() };
-    let code = unsafe { std::slice::from_raw_parts(code, length) };
-    let writer = unsafe { &*writer };
+    let handle_scope = &mut v8::HandleScope::new(isolate);
+    let context = v8::Context::new(handle_scope);
+    let context_scope = &mut v8::ContextScope::new(handle_scope, context);
+    let scope = &mut v8::HandleScope::new(context_scope);
 
-    let scope = &mut v8::HandleScope::new(isolate);
-    let context = v8::Context::new(scope);
-    let scope = &mut v8::ContextScope::new(scope, context);
-
-    let code = v8::String::new_from_two_byte(scope, code, v8::NewStringType::Normal).unwrap();
-    let script = v8::Script::compile(scope, code, None).unwrap();
-    let result = script.run(scope).unwrap();
-    write_json(scope, writer, result);
-
-    0
+    callback(scope)
 }
 
-fn write_json(scope: &mut v8::HandleScope, writer: & JsonWriter, value: v8::Local<v8::Value>) {
-    if value.is_undefined() {
-        (writer.write_undefined)();
-    } else if value.is_null() {
-        (writer.write_null)();
-    } else if value.is_true() {
-        (writer.write_true)();
-    } else if value.is_false() {
-        (writer.write_false)();
-    } else if value.is_int32() {
-        (writer.write_int)(value.integer_value(scope).unwrap());
-    } else if value.is_number() {
-        (writer.write_number)(value.number_value(scope).unwrap());
-    } else if value.is_string() {
-        write_json_string(scope, writer.write_string, value);
-    } else if value.is_array() {
-        let length_str = v8::String::new(scope, "length").unwrap();
-        let value = value.to_object(scope).unwrap();
-        let length = value.get(scope, length_str.into()).unwrap().integer_value(scope).unwrap();
-        (writer.write_start_array)(length);
-        for i in 0..length as u32 {
-            let item = value.get_index(scope, i).unwrap();
-            write_json(scope, writer, item);
-        }
-        (writer.write_end_array)();
-    } else if value.is_object() {
-        let value = value.to_object(scope).unwrap();
-        let property_names = value.get_own_property_names(scope).unwrap();
-        (writer.write_start_object)();
-        for i in 0..property_names.length() {
-            let property_name = property_names.get_index(scope, i).unwrap();
-            let item = value.get(scope, property_name).unwrap();
-            write_json_string(scope, writer.write_property_name, item);
-        }
-        (writer.write_end_object)();
-    }
-}
+type JsResult = extern fn(scope: &mut v8::HandleScope, value: v8::Local<v8::Value>);
 
-fn write_json_string(scope: &mut v8::HandleScope, write: WriteJsonString, value: v8::Local<v8::Value>) {
-    let value = value.to_string(scope).unwrap();
-    let mut state = WriteJsonStringCopyState
-    {
-        value: value,
-        scope: scope,
+#[no_mangle]
+pub extern "C" fn js_run_script<'a>(
+    scope: &mut v8::HandleScope<'a>,
+    code: v8::Local<'a, v8::String>,
+    filename: v8::Local<'a, v8::String>,
+    error: JsResult,
+    result: JsResult,
+) {
+    let mut scope = v8::TryCatch::new(scope);
+    let undefined = v8::undefined(&mut scope);
+    let origin = v8::ScriptOrigin::new(&mut scope, filename.into(), 0, 0, false, 0, undefined.into(), false, false, false);
+
+    match v8::Script::compile(&mut scope, code, Some(&origin)) {
+        None => report_errors(scope, error),
+        Some(script) => match script.run(&mut scope) {
+            Some(value) => (result)(&mut scope, value),
+            None => report_errors(scope, error),
+        }
     };
-
-    write(value.length(), write_json_string_copy, &mut state);
 }
 
-fn write_json_string_copy(buffer: *mut u16, length: usize, state: *mut WriteJsonStringCopyState) {
-    let state = unsafe { &mut *state };
-    let buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
-    state.value.write(state.scope, buffer, 0, v8::WriteOptions::NO_OPTIONS);
+fn report_errors(mut try_catch: v8::TryCatch<v8::HandleScope>, error: JsResult) {
+    let exception = try_catch.exception().unwrap();
+    (error)(&mut try_catch, exception)
 }
 
 #[test]
 fn test_run_javascript() {
-    let isolate = js_new_isolate();
-    let code = "1+2".encode_utf16().collect::<Vec<u16>>();
-    let success = js_run(isolate, code.as_ptr(), code.len(), std::ptr::null());
-    assert_eq!(success, 0);
-    js_delete_isolate(isolate);
+    assert_eq!(8, std::mem::size_of::<&mut v8::HandleScope>());
+    assert_eq!(8, std::mem::size_of::<v8::Local<v8::String>>());
 }

@@ -1,6 +1,6 @@
-using System.Buffers;
-using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using Xunit;
 
 namespace Microsoft.Docs.Build
@@ -15,55 +15,74 @@ namespace Microsoft.Docs.Build
         [InlineData("1 + 2", "3")]
         [InlineData("1 + 'a'", "'1a'")]
         [InlineData("null", "null")]
-        [InlineData("undefined", "null")]
+        [InlineData("undefined", "undefined")]
         [InlineData("'hello' + ' world'", "'hello world'")]
-        [InlineData("[1,3.14,21474836470,-2147483647]", "[1,3.14,21474836470,-2147483647]")]
-        [InlineData("{a:0,b:{c:[]}}", "{'a':0,'b':{'c':[]}}")]
-        public void RunJavaScript(string code, string output)
+        [InlineData("[1,3.14]", "[1,3.14]")]
+        public void RunJavaScript_Succeed(string code, string output)
         {
-            var writer = new JsonWriter();
-            _js.Run(code, "", null, writer);
-            Assert.Equal(output, writer.GetString().Replace('\"', '\''));
+            var hasError = false;
+            var actualOutput = (JToken)JValue.CreateUndefined();
+
+            _js.Run(scope => scope.RunScript(
+                code,
+                "test.js",
+                error => hasError = true,
+                value => actualOutput = ToJToken(value)));
+
+            Assert.False(hasError);
+            Assert.Equal(output.Replace('\'', '\"'), actualOutput.ToString(Formatting.None));
         }
 
-        private class JsonWriter : IJsonWriter
+        [Theory]
+        [InlineData("this is buggy", "SyntaxError: Unexpected identifier")]
+        public void RunJavaScript_Compile_Error(string code, string error)
         {
-            private readonly ArrayBufferWriter<byte> _buffer = new ArrayBufferWriter<byte>();
-            private readonly Utf8JsonWriter _writer;
+            var actualError = (JToken)JValue.CreateUndefined();
 
-            public JsonWriter() => _writer = new Utf8JsonWriter(_buffer);
+            _js.Run(scope => scope.RunScript(
+                code,
+                "test.js",
+                error => actualError = ToJToken(error),
+                value => { }));
 
-            public string GetString()
+            Assert.Contains(error, actualError);
+        }
+
+        private static JToken ToJToken(JavaScriptValue value)
+        {
+            switch (value.GetValueType())
             {
-                _writer.Flush();
-                return Encoding.UTF8.GetString(_buffer.WrittenSpan);
+                case JavaScriptValueType.Null:
+                    return JValue.CreateNull();
+                case JavaScriptValueType.Undefined:
+                    return JValue.CreateUndefined();
+                case JavaScriptValueType.True:
+                    return new JValue(true);
+                case JavaScriptValueType.False:
+                    return new JValue(false);
+                case JavaScriptValueType.String:
+                    return new JValue(value.AsString());
+                case JavaScriptValueType.Integer:
+                    return new JValue(value.AsInteger());
+                case JavaScriptValueType.Number:
+                    return new JValue(value.AsNumber());
+                case JavaScriptValueType.Array:
+                    var array = new JArray();
+                    foreach (var item in value.EnumerateArray())
+                    {
+                        array.Add(ToJToken(item));
+                    }
+                    return array;
+                case JavaScriptValueType.Object:
+                    var obj = new JObject();
+                    foreach (var (key, item) in value.EnumerateObject())
+                    {
+                        obj.Add(key, ToJToken(item));
+                    }
+                    return obj;
+                default:
+                    throw new NotSupportedException();
             }
-
-            public void Flush() => _writer.Flush();
-
-            public void WriteEndArray() => _writer.WriteEndArray();
-
-            public void WriteEndObject() => _writer.WriteEndObject();
-
-            public void WriteFalse() => _writer.WriteBooleanValue(false);
-
-            public void WriteInt(long value) => _writer.WriteNumberValue(value);
-
-            public void WriteNull() => _writer.WriteNullValue();
-
-            public void WriteNumber(double value) => _writer.WriteNumberValue(value);
-
-            public void WritePropertyName(string name) => _writer.WritePropertyName(name);
-
-            public void WriteStartArray(long length) => _writer.WriteStartArray();
-
-            public void WriteStartObject() => _writer.WriteStartObject();
-
-            public void WriteString(string value) => _writer.WriteStringValue(value);
-
-            public void WriteTrue() => _writer.WriteBooleanValue(true);
-
-            public void WriteUndefined() => _writer.WriteNullValue();
         }
     }
 }
