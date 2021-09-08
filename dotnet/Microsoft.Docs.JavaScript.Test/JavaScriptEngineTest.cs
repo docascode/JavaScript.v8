@@ -29,7 +29,7 @@ namespace Microsoft.Docs.Build
                 code,
                 "test.js",
                 (scope, error) => hasError = true,
-                (scope, value) => actualOutput = ToJToken(value)));
+                (scope, value) => actualOutput = ToJToken(scope, value)));
 
             Assert.False(hasError);
             Assert.Equal(output.Replace('\'', '\"'), actualOutput.ToString(Formatting.None));
@@ -44,7 +44,7 @@ namespace Microsoft.Docs.Build
             _js.Run(scope => scope.RunScript(
                 code,
                 "test.js",
-                (scope, error) => actualError = ToJToken(error),
+                (scope, error) => actualError = ToJToken(scope, error),
                 (scope, value) => { }));
 
             Assert.Contains(error, actualError);
@@ -68,7 +68,9 @@ namespace Microsoft.Docs.Build
                     {
                         Assert.Equal(JavaScriptValueType.Function, value.Type);
                         actualOutput = ToJToken(
+                            scope,
                             value.CallFunction(
+                                scope,
                                 scope.CreateUndefined(),
                                 ToJavaScriptValue(scope, JToken.Parse(input.Replace('\'', '\"')))).result);
                     });
@@ -87,9 +89,15 @@ namespace Microsoft.Docs.Build
 
             _js.Run(scope =>
             {
-                var foo = scope.CreateFunction((scope, self, args) => scope.CreateString(
-                    ToJToken(self) + "," +
-                    string.Join(",", args.ToArray().Select(arg => ToJToken(arg).ToString(Formatting.None)))));
+                var foo = scope.CreateFunction((scope, self, args) =>
+                {
+                    var result = ToJToken(scope, self).ToString(Formatting.None);
+                    foreach (var arg in args)
+                    {
+                        result += "," + ToJToken(scope, arg).ToString(Formatting.None);
+                    }
+                    return scope.CreateString(result);
+                });
 
                 scope.RunScript(
                     $"(function() {{ return {code} }})()",
@@ -98,7 +106,7 @@ namespace Microsoft.Docs.Build
                     (scope, value) =>
                     {
                         Assert.Equal(JavaScriptValueType.Function, value.Type);
-                        actualOutput = value.CallFunction(scope.CreateUndefined(), foo).result.AsString();
+                        actualOutput = value.CallFunction(scope, scope.CreateUndefined(), foo).result.AsString(scope);
                     });
             });
 
@@ -106,34 +114,34 @@ namespace Microsoft.Docs.Build
             Assert.Equal(output.Replace('\'', '\"'), actualOutput);
         }
 
-        private static JavaScriptValue ToJavaScriptValue(JavaScriptScope context, JToken value)
+        private static JavaScriptValue ToJavaScriptValue(JavaScriptScope scope, JToken value)
         {
             switch (value.Type)
             {
                 case JTokenType.Null:
-                    return context.CreateNull();
+                    return scope.CreateNull();
                 case JTokenType.Undefined:
-                    return context.CreateUndefined();
+                    return scope.CreateUndefined();
                 case JTokenType.String:
-                    return context.CreateString(value.ToString());
+                    return scope.CreateString(value.ToString());
                 case JTokenType.Integer:
-                    return context.CreateInteger((int)value);
+                    return scope.CreateInteger((int)value);
                 case JTokenType.Float:
-                    return context.CreateNumber((double)value);
+                    return scope.CreateNumber((double)value);
                 case JTokenType.Boolean:
-                    return (bool)value ? context.CreateTrue() : context.CreateFalse();
+                    return (bool)value ? scope.CreateTrue() : scope.CreateFalse();
                 case JTokenType.Array when value is JArray jArray:
-                    var array = context.CreateArray(jArray.Count);
+                    var array = scope.CreateArray(jArray.Count);
                     for (var i = 0; i < jArray.Count; i++)
                     {
-                        array[i] = ToJavaScriptValue(context, jArray[i]);
+                        array.ArraySetIndex(scope, i, ToJavaScriptValue(scope, jArray[i]));
                     }
                     return array;
                 case JTokenType.Object when value is JObject jObj:
-                    var obj = context.CreateObject();
+                    var obj = scope.CreateObject();
                     foreach (var (key, item) in jObj)
                     {
-                        obj[key] = ToJavaScriptValue(context, item);
+                        obj.ObjectSetProperty(scope, key, ToJavaScriptValue(scope, item));
                     }
                     return obj;
                 default:
@@ -141,7 +149,7 @@ namespace Microsoft.Docs.Build
             }
         }
 
-        private static JToken ToJToken(JavaScriptValue value)
+        private static JToken ToJToken(JavaScriptScope scope, JavaScriptValue value)
         {
             switch (value.Type)
             {
@@ -154,23 +162,23 @@ namespace Microsoft.Docs.Build
                 case JavaScriptValueType.False:
                     return new JValue(false);
                 case JavaScriptValueType.String:
-                    return new JValue(value.AsString());
+                    return new JValue(value.AsString(scope));
                 case JavaScriptValueType.Integer:
-                    return new JValue(value.AsInteger());
+                    return new JValue(value.AsInteger(scope));
                 case JavaScriptValueType.Number:
-                    return new JValue(value.AsNumber());
+                    return new JValue(value.AsNumber(scope));
                 case JavaScriptValueType.Array:
                     var array = new JArray();
-                    foreach (var item in value.EnumerateArray())
+                    foreach (var item in value.EnumerateArray(scope))
                     {
-                        array.Add(ToJToken(item));
+                        array.Add(ToJToken(scope, item));
                     }
                     return array;
                 case JavaScriptValueType.Object:
                     var obj = new JObject();
-                    foreach (var (key, item) in value.EnumerateObject())
+                    foreach (var (key, item) in value.EnumerateObject(scope))
                     {
-                        obj.Add(key, ToJToken(item));
+                        obj.Add(key, ToJToken(scope, item));
                     }
                     return obj;
                 default:

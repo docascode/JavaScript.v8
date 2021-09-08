@@ -3,79 +3,77 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Docs.Build
 {
-    internal delegate void JsRun(IntPtr scope);
-    internal delegate void JsResult(IntPtr scope, IntPtr value);
-    internal unsafe delegate IntPtr JsFunction(IntPtr scope, IntPtr self, IntPtr* argv, nint argc);
+    internal unsafe delegate JavaScriptValue JsFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, nint argc);
 
     internal static unsafe class NativeMethods
     {
         private const string LibName = "docfxjsv8";
 
         [DllImport(LibName)]
-        public static extern JavaScriptValueType js_value_type(IntPtr value);
+        public static extern JavaScriptValueType js_value_type(JavaScriptValue value);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_undefined(IntPtr scope);
+        public static extern JavaScriptValue js_undefined(JavaScriptScope scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_null(IntPtr scope);
+        public static extern JavaScriptValue js_null(JavaScriptScope scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_true(IntPtr scope);
+        public static extern JavaScriptValue js_true(JavaScriptScope scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_false(IntPtr scope);
+        public static extern JavaScriptValue js_false(JavaScriptScope scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_integer_new(IntPtr scope, int value);
+        public static extern JavaScriptValue js_integer_new(JavaScriptScope scope, int value);
 
         [DllImport(LibName)]
-        public static extern long js_integer_value(IntPtr scope, IntPtr value);
+        public static extern long js_integer_value(JavaScriptScope scope, JavaScriptValue value);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_number_new(IntPtr scope, double value);
+        public static extern JavaScriptValue js_number_new(JavaScriptScope scope, double value);
 
         [DllImport(LibName)]
-        public static extern double js_number_value(IntPtr scope, IntPtr value);
+        public static extern double js_number_value(JavaScriptScope scope, JavaScriptValue value);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_string_new(IntPtr scope, char* chars, nint length);
+        public static extern JavaScriptValue js_string_new(JavaScriptScope scope, char* chars, nint length);
 
         [DllImport(LibName)]
-        public static extern nint js_string_length(IntPtr value);
+        public static extern nint js_string_length(JavaScriptValue value);
 
         [DllImport(LibName)]
-        public static extern nint js_string_copy(IntPtr scope, IntPtr value, char* buffer, nint length);
+        public static extern nint js_string_copy(IntPtr scope, JavaScriptValue value, char* buffer, nint length);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_array_new(IntPtr scope, int length);
+        public static extern JavaScriptValue js_array_new(JavaScriptScope scope, int length);
 
         [DllImport(LibName)]
-        public static extern uint js_array_length(IntPtr array);
+        public static extern uint js_array_length(JavaScriptValue array);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_array_get_index(IntPtr scope, IntPtr array, uint index);
+        public static extern JavaScriptValue js_array_get_index(JavaScriptScope scope, JavaScriptValue array, uint index);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_array_set_index(IntPtr scope, IntPtr array, uint index, IntPtr value);
+        public static extern void js_array_set_index(JavaScriptScope scope, JavaScriptValue array, uint index, JavaScriptValue value);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_object_new(IntPtr scope);
+        public static extern JavaScriptValue js_object_new(JavaScriptScope scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_object_get_own_property_names(IntPtr scope, IntPtr obj);
+        public static extern JavaScriptValue js_object_get_own_property_names(JavaScriptScope scope, JavaScriptValue obj);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_object_get_property(IntPtr scope, IntPtr obj, IntPtr key);
+        public static extern JavaScriptValue js_object_get_property(JavaScriptScope scope, JavaScriptValue obj, JavaScriptValue key);
 
         [DllImport(LibName)]
-        public static extern void js_object_set_property(IntPtr scope, IntPtr obj, IntPtr key, IntPtr value);
+        public static extern void js_object_set_property(JavaScriptScope scope, JavaScriptValue obj, JavaScriptValue key, JavaScriptValue value);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_function_new(IntPtr scope, JsFunction callback);
+        public static extern JavaScriptValue js_function_new(JavaScriptScope scope, JsFunction callback);
 
         [DllImport(LibName)]
-        public static extern void js_function_call(IntPtr scope, IntPtr value, IntPtr recv, IntPtr* argv, nint argc, JsResult error, JsResult result);
+        public static extern void js_function_call(JavaScriptScope scope, JavaScriptValue value, JavaScriptValue recv, JavaScriptValue* argv, nint argc, JavaScriptValueAction error, JavaScriptValueAction result);
 
         [DllImport(LibName)]
         public static extern IntPtr js_isolate_new();
@@ -84,12 +82,12 @@ namespace Microsoft.Docs.Build
         public static extern void js_isolate_delete(IntPtr isolate);
 
         [DllImport(LibName)]
-        public static extern void js_run_in_context(IntPtr isolate, JsRun callback);
+        public static extern void js_run_in_context(IntPtr isolate, JavaScriptScopeAction callback);
 
         [DllImport(LibName)]
-        public static extern void js_run_script(IntPtr scope, IntPtr code, IntPtr filename, JsResult error, JsResult result);
+        public static extern void js_run_script(JavaScriptScope scope, JavaScriptValue code, JavaScriptValue filename, JavaScriptValueAction error, JavaScriptValueAction result);
 
-        public static IntPtr ToJsString(IntPtr scope, string value)
+        public static JavaScriptValue ToJsString(JavaScriptScope scope, string value)
         {
             fixed (char* chars = value)
             {
@@ -97,15 +95,15 @@ namespace Microsoft.Docs.Build
             }
         }
 
-        public static string FromJsString(IntPtr scope, IntPtr str)
+        public static string FromJsString(JavaScriptScope scope, JavaScriptValue str)
         {
             var length = js_string_length(str);
 
-            return string.Create((int)length, (scope, str, length), static (buffer, state) =>
+            return string.Create((int)length, (scope._ptr, str, length), static (buffer, state) =>
             {
                 fixed (char* buf = buffer)
                 {
-                    js_string_copy(state.scope, state.str, buf, state.length);
+                    js_string_copy(state._ptr, state.str, buf, state.length);
                 }
             });
         }

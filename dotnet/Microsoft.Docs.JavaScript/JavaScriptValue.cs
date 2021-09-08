@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 
 using static Microsoft.Docs.Build.NativeMethods;
 
@@ -20,103 +21,66 @@ namespace Microsoft.Docs.Build
         Function,
     }
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe readonly struct JavaScriptValue
     {
-        private const int MaxStackAllocArgs = 10;
+        private readonly IntPtr _;
 
-        internal readonly IntPtr _scope;
-        internal readonly IntPtr _value;
+        public JavaScriptValueType Type => js_value_type(this);
 
-        internal JavaScriptValue(IntPtr scope, IntPtr value)
+        public string AsString(JavaScriptScope scope) => FromJsString(scope, this);
+
+        public long AsInteger(JavaScriptScope scope) => js_integer_value(scope, this);
+
+        public double AsNumber(JavaScriptScope scope) => js_number_value(scope, this);
+
+        public int ArrayLength() => (int)js_array_length(this);
+
+        public JavaScriptValue ArrayGetIndex(JavaScriptScope scope, int index) => js_array_get_index(scope, this, (uint)index);
+
+        public void ArraySetIndex(JavaScriptScope scope, int index, JavaScriptValue value) => js_array_set_index(scope, this, (uint)index, value);
+
+        public JavaScriptValue ObjectGetProperty(JavaScriptScope scope, string key) => js_object_get_property(scope, this, ToJsString(scope, key));
+
+        public void ObjectSetProperty(JavaScriptScope scope, string key, JavaScriptValue value) => js_object_set_property(scope, this, ToJsString(scope, key), value);
+
+        public ObjectEnumerator EnumerateObject(JavaScriptScope scope) => new ObjectEnumerator(scope, this);
+
+        public ArrayEnumerator EnumerateArray(JavaScriptScope scope) => new ArrayEnumerator(scope, this);
+
+        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, params JavaScriptValue[] args)
         {
-            _scope = scope;
-            _value = value;
-        }
-
-        public JavaScriptValueType Type => js_value_type(_value);
-
-        public string AsString() => FromJsString(_scope, _value);
-
-        public long AsInteger() => js_integer_value(_scope, _value);
-
-        public double AsNumber() => js_number_value(_scope, _value);
-
-        public int ArrayLength() => (int)js_array_length(_value);
-
-        public JavaScriptValue this[string key]
-        {
-            get => new(_scope, js_object_get_property(_scope, _value, ToJsString(_scope, key)));
-            set => js_object_set_property(_scope, _value, ToJsString(_scope, key), value._value);
-        }
-
-        public JavaScriptValue this[int index]
-        {
-            get => new(_scope, js_array_get_index(_scope, _value, (uint)index));
-            set => js_array_set_index(_scope, _value, (uint)index, value._value);
-        }
-
-        public ObjectEnumerator EnumerateObject() => new ObjectEnumerator(_scope, _value);
-
-        public ArrayEnumerator EnumerateArray() => new ArrayEnumerator(_scope, _value);
-
-        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, params JavaScriptValue[] args)
-        {
-            return CallFunction(self, args.AsSpan());
-        }
-
-        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args)
-        {
-            Span<IntPtr> argv = args.Length <= MaxStackAllocArgs
-                ? stackalloc IntPtr[MaxStackAllocArgs].Slice(0, args.Length)
-                : new IntPtr[args.Length];
-
-            for (var i = 0; i < args.Length; i++)
+            fixed (JavaScriptValue* argv = args)
             {
-                argv[i] = args[i]._value;
+                return CallFunction(scope, self, argv, args.Length);
             }
-
-            return CallFunction(self, argv);
         }
 
-        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, JavaScriptValue arg0)
+        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue arg0)
         {
-            Span<IntPtr> args = stackalloc IntPtr[1];
-            args[0] = arg0._value;
-            return CallFunction(self, args);
+            return CallFunction(scope, self, &arg0, 1);
         }
 
-        private (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, ReadOnlySpan<IntPtr> args)
+        private (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, int argc)
         {
             JavaScriptValue error = default;
             JavaScriptValue result = default;
 
-            var scope = _scope;
-
-            fixed (IntPtr* argv = args)
-            {
-                js_function_call(
-                    _scope,
-                    _value,
-                    self._scope,
-                    argv,
-                    args.Length,
-                    (scope, value) => error = new(scope, value),
-                    (scope, value) => result = new(scope, value));
-            }
+            js_function_call(scope, this, self, argv, argc, (scope, value) => error = value, (scope, value) => result = value);
 
             return (error, result);
         }
 
         public ref struct ObjectEnumerator
         {
-            private readonly IntPtr _scope;
-            private readonly IntPtr _value;
-            private readonly IntPtr _propertyNames;
+            private readonly JavaScriptScope _scope;
+            private readonly JavaScriptValue _value;
+            private readonly JavaScriptValue _propertyNames;
             private readonly uint _length;
 
             private int _index;
 
-            internal ObjectEnumerator(IntPtr scope, IntPtr value)
+            internal ObjectEnumerator(JavaScriptScope scope, JavaScriptValue value)
             {
                 _index = -1;
                 _scope = scope;
@@ -151,13 +115,13 @@ namespace Microsoft.Docs.Build
 
         public ref struct ArrayEnumerator
         {
-            private readonly IntPtr _scope;
-            private readonly IntPtr _value;
+            private readonly JavaScriptScope _scope;
+            private readonly JavaScriptValue _value;
             private readonly uint _length;
 
             private int _index;
 
-            internal ArrayEnumerator(IntPtr scope, IntPtr value)
+            internal ArrayEnumerator(JavaScriptScope scope, JavaScriptValue value)
             {
                 _index = -1;
                 _scope = scope;
@@ -169,7 +133,7 @@ namespace Microsoft.Docs.Build
             {
                 get
                 {
-                    return new(_scope, js_array_get_index(_scope, _value, (uint)_index));
+                    return js_array_get_index(_scope, _value, (uint)_index);
                 }
             }
 
@@ -187,13 +151,13 @@ namespace Microsoft.Docs.Build
         }
     }
 
-    public unsafe ref struct JavaScriptProperty
+    public unsafe readonly ref struct JavaScriptProperty
     {
-        private readonly IntPtr _scope;
-        private readonly IntPtr _propertyName;
-        private readonly IntPtr _propertyValue;
+        private readonly JavaScriptScope _scope;
+        private readonly JavaScriptValue _propertyName;
+        private readonly JavaScriptValue _propertyValue;
 
-        public JavaScriptProperty(IntPtr scope, IntPtr propertyName, IntPtr propertyValue)
+        public JavaScriptProperty(JavaScriptScope scope, JavaScriptValue propertyName, JavaScriptValue propertyValue)
         {
             _scope = scope;
             _propertyName = propertyName;
@@ -204,7 +168,7 @@ namespace Microsoft.Docs.Build
         public void Deconstruct(out string key, out JavaScriptValue value)
         {
             key = FromJsString(_scope, _propertyName);
-            value = new JavaScriptValue(_scope, _propertyValue);
+            value = _propertyValue;
         }
     }
 }

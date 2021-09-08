@@ -16,7 +16,7 @@ namespace Microsoft.Docs.Build
 
         public void Run(JavaScriptScopeAction action)
         {
-            js_run_in_context(_isolate, scope => action(new(scope)));
+            js_run_in_context(_isolate, scope => action(scope));
         }
 
         public void Dispose()
