@@ -14,22 +14,28 @@ namespace Microsoft.Docs.Build
         public static extern JavaScriptValueType js_value_type(IntPtr value);
 
         [DllImport(LibName)]
-        public static extern long js_value_as_integer(IntPtr scope, IntPtr value);
+        public static extern IntPtr js_undefined(IntPtr scope);
 
         [DllImport(LibName)]
-        public static extern double js_value_as_number(IntPtr scope, IntPtr value);
+        public static extern IntPtr js_null(IntPtr scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_object_get_own_property_names(IntPtr scope, IntPtr value);
+        public static extern IntPtr js_true(IntPtr scope);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_object_get_property(IntPtr scope, IntPtr value, IntPtr key);
+        public static extern IntPtr js_false(IntPtr scope);
 
         [DllImport(LibName)]
-        public static extern uint js_array_length(IntPtr value);
+        public static extern IntPtr js_integer_new(IntPtr scope, int value);
 
         [DllImport(LibName)]
-        public static extern IntPtr js_array_get_index(IntPtr scope, IntPtr value, uint index);
+        public static extern long js_integer_value(IntPtr scope, IntPtr value);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_number_new(IntPtr scope, double value);
+
+        [DllImport(LibName)]
+        public static extern double js_number_value(IntPtr scope, IntPtr value);
 
         [DllImport(LibName)]
         public static extern IntPtr js_string_new(IntPtr scope, char* chars, nint length);
@@ -39,6 +45,30 @@ namespace Microsoft.Docs.Build
 
         [DllImport(LibName)]
         public static extern nint js_string_copy(IntPtr scope, IntPtr value, char* buffer, nint length);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_array_new(IntPtr scope, int length);
+
+        [DllImport(LibName)]
+        public static extern uint js_array_length(IntPtr array);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_array_get_index(IntPtr scope, IntPtr array, uint index);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_array_set_index(IntPtr scope, IntPtr array, uint index, IntPtr value);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_object_new(IntPtr scope);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_object_get_own_property_names(IntPtr scope, IntPtr obj);
+
+        [DllImport(LibName)]
+        public static extern IntPtr js_object_get_property(IntPtr scope, IntPtr obj, IntPtr key);
+
+        [DllImport(LibName)]
+        public static extern void js_object_set_property(IntPtr scope, IntPtr obj, IntPtr key, IntPtr value);
 
         [DllImport(LibName)]
         public static extern void js_function_call(IntPtr scope, IntPtr value, IntPtr recv, IntPtr* argv, nint argc, JsResult error, JsResult result);

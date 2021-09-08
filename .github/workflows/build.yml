@@ -15,8 +15,6 @@ jobs:
       with:
         dotnet-version: 5.0.400
 
-    - run: cargo test --release
-      working-directory: rust
     - run: cargo build --release
       working-directory: rust
     - run: dotnet test -c Release

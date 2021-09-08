@@ -8,6 +8,9 @@ use std::sync::Once;
 
 static V8_INITIALIZE: Once = Once::new();
 
+type JsRun = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>);
+type JsResult = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>, value: v8::Local<v8::Value>);
+
 #[repr(C)]
 pub enum JsValueType {
     Unknown,
@@ -39,75 +42,85 @@ pub extern "C" fn js_value_type(value: v8::Local<v8::Value>) ->JsValueType {
         return JsValueType::Number;
     } else if value.is_string() {
         return JsValueType::String;
+    } else if value.is_function() {
+        return JsValueType::Function;
     } else if value.is_array() {
         return JsValueType::Array;
     } else if value.is_object() {
         return JsValueType::Object;
-    } else if value.is_function() {
-        return JsValueType::Function;
     } else {
         return JsValueType::Unknown;
     }
 }
 
 #[no_mangle]
-pub extern "C" fn js_value_as_integer<'a>(
-    scope: &mut v8::HandleScope<'a>,
+pub extern "C" fn js_undefined<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>
+) -> v8::Local<'a, v8::Primitive> {
+    v8::undefined(scope)
+}
+
+#[no_mangle]
+pub extern "C" fn js_null<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>
+) -> v8::Local<'a, v8::Primitive> {
+    v8::null(scope)
+}
+
+#[no_mangle]
+pub extern "C" fn js_true<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+) -> v8::Local<'a, v8::Boolean> {
+    v8::Boolean::new(scope, true)
+}
+
+#[no_mangle]
+pub extern "C" fn js_false<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+) -> v8::Local<'a, v8::Boolean> {
+    v8::Boolean::new(scope, false)
+}
+
+#[no_mangle]
+pub extern "C" fn js_integer_new<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    value: i32,
+) -> v8::Local<'a, v8::Integer> {
+    v8::Integer::new(scope, value)
+}
+
+#[no_mangle]
+pub extern "C" fn js_integer_value<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
     value: v8::Local<'a, v8::Value>
 ) -> i64 {
     return value.integer_value(scope).unwrap();
 }
 
 #[no_mangle]
-pub extern "C" fn js_value_as_number<'a>(
-    scope: &mut v8::HandleScope<'a>,
+pub extern "C" fn js_number_new<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    value: f64,
+) -> v8::Local<'a, v8::Number> {
+    v8::Number::new(scope, value)
+}
+
+#[no_mangle]
+pub extern "C" fn js_number_value<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
     value: v8::Local<'a, v8::Value>
 ) -> f64 {
     return value.number_value(scope).unwrap();
 }
 
 #[no_mangle]
-pub extern "C" fn js_object_get_own_property_names<'a>(
-    scope: &mut v8::HandleScope<'a>,
-    value: v8::Local<'a, v8::Object>
-) -> v8::Local<'a, v8::Array> {
-    return value.get_own_property_names(scope).unwrap();
-}
-
-#[no_mangle]
-pub extern "C" fn js_object_get_property<'a>(
-    scope: &mut v8::HandleScope<'a>,
-    value: v8::Local<'a, v8::Object>,
-    key: v8::Local<'a, v8::Value>,
-) -> v8::Local<'a, v8::Value> {
-    return value.get(scope, key).unwrap();
-}
-
-#[no_mangle]
-pub extern "C" fn js_array_length<'a>(
-    value: v8::Local<'a, v8::Array>
-) -> u32 {
-    return value.length();
-}
-
-#[no_mangle]
-pub extern "C" fn js_array_get_index<'a>(
-    scope: &mut v8::HandleScope<'a>,
-    value: v8::Local<'a, v8::Array>,
-    index: u32,
-) -> v8::Local<'a, v8::Value> {
-    return value.get_index(scope, index).unwrap();
-}
-
-#[no_mangle]
 pub extern "C" fn js_string_new<'a>(
-    scope: &mut v8::HandleScope<'a>,
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
     chars: *const u16,
     length: usize
 ) -> v8::Local<'a, v8::String> {
     let string = unsafe { std::slice::from_raw_parts(chars, length) };
-    let string = v8::String::new_from_two_byte(scope, string, v8::NewStringType::Normal).unwrap();
-    string
+    return v8::String::new_from_two_byte(scope, string, v8::NewStringType::Normal).unwrap();
 }
 
 #[no_mangle]
@@ -117,7 +130,7 @@ pub extern "C" fn js_string_length<'a>(value: v8::Local<'a, v8::String>) -> usiz
 
 #[no_mangle]
 pub extern "C" fn js_string_copy<'a>(
-    scope: &mut v8::HandleScope<'a>,
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
     value: v8::Local<'a, v8::String>,
     buffer: *mut u16,
     length: usize
@@ -127,8 +140,76 @@ pub extern "C" fn js_string_copy<'a>(
 }
 
 #[no_mangle]
+pub extern "C" fn js_array_new<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    length: i32,
+) -> v8::Local<'a, v8::Array> {
+    v8::Array::new(scope, length)
+}
+
+#[no_mangle]
+pub extern "C" fn js_array_length<'a>(
+    array: v8::Local<'a, v8::Array>
+) -> u32 {
+    return array.length();
+}
+
+#[no_mangle]
+pub extern "C" fn js_array_get_index<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    array: v8::Local<'a, v8::Array>,
+    index: u32,
+) -> v8::Local<'a, v8::Value> {
+    return array.get_index(scope, index).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_array_set_index<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    array: v8::Local<'a, v8::Array>,
+    index: u32,
+    value: v8::Local<'a, v8::Value>,
+) {
+    array.set_index(scope, index, value).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_object_new<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+) -> v8::Local<'a, v8::Object> {
+    v8::Object::new(scope)
+}
+
+#[no_mangle]
+pub extern "C" fn js_object_get_own_property_names<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    obj: v8::Local<'a, v8::Object>
+) -> v8::Local<'a, v8::Array> {
+    return obj.get_own_property_names(scope).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_object_get_property<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    obj: v8::Local<'a, v8::Object>,
+    key: v8::Local<'a, v8::Value>,
+) -> v8::Local<'a, v8::Value> {
+    return obj.get(scope, key).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_object_set_property<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    obj: v8::Local<'a, v8::Object>,
+    key: v8::Local<'a, v8::Value>,
+    value: v8::Local<'a, v8::Value>,
+) {
+    obj.set(scope, key, value).unwrap();
+}
+
+#[no_mangle]
 pub extern "C" fn js_function_call<'a>(
-    scope: &mut v8::HandleScope<'a>,
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
     value: v8::Local<'a, v8::Function>,
     recv: v8::Local<'a, v8::Value>,
     argv: *const v8::Local<'a, v8::Value>,
@@ -136,10 +217,9 @@ pub extern "C" fn js_function_call<'a>(
     error: JsResult,
     result: JsResult,
 ) {
-    let mut scope = v8::TryCatch::new(scope);
     let args = unsafe { std::slice::from_raw_parts(argv, argc) };
-    match value.call(&mut scope, recv, args) {
-        Some(value) => (result)(&mut scope, value),
+    match value.call(scope, recv, args) {
+        Some(value) => (result)(scope, value),
         None => report_errors(scope, error),
     }
 }
@@ -162,45 +242,40 @@ pub extern "C" fn js_isolate_delete(isolate: *mut v8::OwnedIsolate) {
     unsafe { Box::from_raw(isolate) };
 }
 
-type JsRun = extern fn(scope: &mut v8::HandleScope);
-
 #[no_mangle]
 pub extern "C" fn js_run_in_context(isolate: *mut v8::OwnedIsolate, callback: JsRun) {
     let isolate = unsafe { isolate.as_mut().unwrap() };
     let handle_scope = &mut v8::HandleScope::new(isolate);
     let context = v8::Context::new(handle_scope);
     let context_scope = &mut v8::ContextScope::new(handle_scope, context);
-    let scope = &mut v8::HandleScope::new(context_scope);
+    let mut scope = v8::TryCatch::new(context_scope);
 
-    callback(scope)
+    callback(&mut scope)
 }
-
-type JsResult = extern fn(scope: &mut v8::HandleScope, value: v8::Local<v8::Value>);
 
 #[no_mangle]
 pub extern "C" fn js_run_script<'a>(
-    scope: &mut v8::HandleScope<'a>,
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
     code: v8::Local<'a, v8::String>,
     filename: v8::Local<'a, v8::String>,
     error: JsResult,
     result: JsResult,
 ) {
-    let mut scope = v8::TryCatch::new(scope);
-    let undefined = v8::undefined(&mut scope);
-    let origin = v8::ScriptOrigin::new(&mut scope, filename.into(), 0, 0, false, 0, undefined.into(), false, false, false);
+    let undefined = v8::undefined(scope);
+    let origin = v8::ScriptOrigin::new(scope, filename.into(), 0, 0, false, 0, undefined.into(), false, false, false);
 
-    match v8::Script::compile(&mut scope, code, Some(&origin)) {
+    match v8::Script::compile(scope, code, Some(&origin)) {
         None => report_errors(scope, error),
-        Some(script) => match script.run(&mut scope) {
-            Some(value) => (result)(&mut scope, value),
+        Some(script) => match script.run(scope) {
+            Some(value) => (result)(scope, value),
             None => report_errors(scope, error),
         }
     };
 }
 
-fn report_errors(mut try_catch: v8::TryCatch<v8::HandleScope>, error: JsResult) {
-    let exception = try_catch.exception().unwrap();
-    (error)(&mut try_catch, exception)
+fn report_errors(scope: &mut v8::TryCatch<v8::HandleScope>, error: JsResult) {
+    let exception = scope.exception().unwrap();
+    (error)(scope, exception)
 }
 
 #[test]
