@@ -10,6 +10,7 @@ static V8_INITIALIZE: Once = Once::new();
 
 type JsRun = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>);
 type JsResult = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>, value: v8::Local<v8::Value>);
+type JsFunction = extern fn(scope: &mut v8::HandleScope, this: v8::Local<v8::Object>, argv: *const v8::Local<v8::Value>, argc: i32) -> v8::Local<'static, v8::Value>;
 
 #[repr(C)]
 pub enum JsValueType {
@@ -205,6 +206,26 @@ pub extern "C" fn js_object_set_property<'a>(
     value: v8::Local<'a, v8::Value>,
 ) {
     obj.set(scope, key, value).unwrap();
+}
+
+#[no_mangle]
+pub extern "C" fn js_function_new<'a>(
+    scope: &mut v8::TryCatch<v8::HandleScope<'a>>,
+    callback: JsFunction,
+) -> v8::Local<'a, v8::Function> {
+    let callback = v8::External::new(scope, callback as *mut std::ffi::c_void);
+    v8::Function::builder(js_function_callback).data(callback.into()).build(scope).unwrap()
+}
+
+fn js_function_callback(scope: &mut v8::HandleScope, args: v8::FunctionCallbackArguments, mut retval: v8::ReturnValue) {
+    let callback: v8::Local<v8::External> = unsafe { std::mem::transmute(args.data().unwrap()) };
+    let callback: JsFunction = unsafe { std::mem::transmute(callback.value()) };
+    let argc = args.length();
+    let mut argv = Vec::with_capacity(argc as usize);
+    for i in 0..argc {
+        argv.push(args.get(i));
+    }
+    retval.set((callback)(scope, args.this(), argv.as_ptr(), argc));
 }
 
 #[no_mangle]

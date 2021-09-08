@@ -5,6 +5,7 @@ namespace Microsoft.Docs.Build
 {
     internal delegate void JsRun(IntPtr scope);
     internal delegate void JsResult(IntPtr scope, IntPtr value);
+    internal unsafe delegate IntPtr JsFunction(IntPtr scope, IntPtr self, IntPtr* argv, nint argc);
 
     internal static unsafe class NativeMethods
     {
@@ -71,6 +72,9 @@ namespace Microsoft.Docs.Build
         public static extern void js_object_set_property(IntPtr scope, IntPtr obj, IntPtr key, IntPtr value);
 
         [DllImport(LibName)]
+        public static extern IntPtr js_function_new(IntPtr scope, JsFunction callback);
+
+        [DllImport(LibName)]
         public static extern void js_function_call(IntPtr scope, IntPtr value, IntPtr recv, IntPtr* argv, nint argc, JsResult error, JsResult result);
 
         [DllImport(LibName)]
@@ -97,7 +101,7 @@ namespace Microsoft.Docs.Build
         {
             var length = js_string_length(str);
 
-            return string.Create((int)length, (scope, str, length), (buffer, state) =>
+            return string.Create((int)length, (scope, str, length), static (buffer, state) =>
             {
                 fixed (char* buf = buffer)
                 {

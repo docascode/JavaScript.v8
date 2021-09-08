@@ -24,8 +24,8 @@ namespace Microsoft.Docs.Build
     {
         private const int MaxStackAllocArgs = 10;
 
-        private readonly IntPtr _scope;
-        private readonly IntPtr _value;
+        internal readonly IntPtr _scope;
+        internal readonly IntPtr _value;
 
         internal JavaScriptValue(IntPtr scope, IntPtr value)
         {
@@ -67,7 +67,7 @@ namespace Microsoft.Docs.Build
         public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args)
         {
             Span<IntPtr> argv = args.Length <= MaxStackAllocArgs
-                ? stackalloc IntPtr[MaxStackAllocArgs]
+                ? stackalloc IntPtr[MaxStackAllocArgs].Slice(0, args.Length)
                 : new IntPtr[args.Length];
 
             for (var i = 0; i < args.Length; i++)
@@ -75,17 +75,17 @@ namespace Microsoft.Docs.Build
                 argv[i] = args[i]._value;
             }
 
-            return CallFunction(self, argv, args.Length);
+            return CallFunction(self, argv);
         }
 
         public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, JavaScriptValue arg0)
         {
             Span<IntPtr> args = stackalloc IntPtr[1];
             args[0] = arg0._value;
-            return CallFunction(self, args, 1);
+            return CallFunction(self, args);
         }
 
-        private (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, ReadOnlySpan<IntPtr> args, nint argc)
+        private (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptValue self, ReadOnlySpan<IntPtr> args)
         {
             JavaScriptValue error = default;
             JavaScriptValue result = default;
@@ -99,7 +99,7 @@ namespace Microsoft.Docs.Build
                     _value,
                     self._scope,
                     argv,
-                    argc,
+                    args.Length,
                     (scope, value) => error = new(scope, value),
                     (scope, value) => result = new(scope, value));
             }
