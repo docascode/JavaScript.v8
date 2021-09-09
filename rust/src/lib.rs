@@ -9,13 +9,14 @@ use std::sync::Once;
 static V8_INITIALIZE: Once = Once::new();
 
 type JsRun = extern "C" fn(scope: &mut v8::HandleScope, global: v8::Local<v8::Object>);
-type JsResult = extern "C" fn(scope: &mut v8::HandleScope, value: v8::Local<v8::Value>);
+
 type JsFunction = extern "C" fn(
     scope: &mut v8::HandleScope,
     this: v8::Local<v8::Object>,
     argv: *const v8::Local<v8::Value>,
     argc: i32,
-) -> v8::Local<'static, v8::Value>;
+    result: &mut v8::Local<v8::Value>
+) -> i32;
 
 #[repr(C)]
 pub enum JsValueType {
@@ -227,7 +228,13 @@ fn js_function_callback(
     for i in 0..argc {
         argv.push(args.get(i));
     }
-    retval.set((callback)(scope, args.this(), argv.as_ptr(), argc));
+    let mut result: v8::Local<v8::Value> = unsafe { std::mem::transmute(v8::undefined(scope)) };
+    if (callback)(scope, args.this(), argv.as_ptr(), argc, &mut result) == 0 {
+        retval.set(result);
+    } else {
+        let exception = v8::Exception::error(scope, unsafe { std::mem::transmute(result) });
+        scope.throw_exception(exception);
+    }
 }
 
 #[no_mangle]
@@ -237,15 +244,20 @@ pub extern "C" fn js_function_call<'a>(
     recv: v8::Local<'a, v8::Value>,
     argv: *const v8::Local<'a, v8::Value>,
     argc: usize,
-    error: JsResult,
-    result: JsResult,
-) {
+    result: &mut v8::Local<'a, v8::Value>,
+) -> i32 {
     let args = unsafe { std::slice::from_raw_parts(argv, argc) };
     let scope = &mut v8::TryCatch::new(scope);
 
     match value.call(scope, recv, args) {
-        Some(value) => (result)(scope, value),
-        None => report_errors(scope, error),
+        Some(value) => {
+            *result = value;
+            0
+        }
+        None => {
+            *result = scope.stack_trace().unwrap();
+            -1
+        }
     }
 }
 
@@ -284,9 +296,8 @@ pub extern "C" fn js_run_script<'a>(
     scope: &mut v8::HandleScope<'a>,
     code: v8::Local<'a, v8::String>,
     filename: v8::Local<'a, v8::String>,
-    error: JsResult,
-    result: JsResult,
-) {
+    result: &mut v8::Local<'a, v8::Value>,
+) -> i32 {
     let undefined = v8::undefined(scope);
     let origin = v8::ScriptOrigin::new(
         scope,
@@ -303,15 +314,19 @@ pub extern "C" fn js_run_script<'a>(
     let scope = &mut v8::TryCatch::new(scope);
 
     match v8::Script::compile(scope, code, Some(&origin)) {
-        None => report_errors(scope, error),
-        Some(script) => match script.run(scope) {
-            Some(value) => (result)(scope, value),
-            None => report_errors(scope, error),
+        None => {
+            *result = scope.stack_trace().unwrap();
+            -1
         },
-    };
-}
-
-fn report_errors(try_catch: &mut v8::TryCatch<v8::HandleScope>, error: JsResult) {
-    let message = try_catch.stack_trace().unwrap();
-    (error)(try_catch, message);
+        Some(script) => match script.run(scope) {
+            None => {
+                *result = scope.stack_trace().unwrap();
+                -2
+            },
+            Some(value) => {
+                *result = value;
+                0
+            }
+        },
+    }
 }

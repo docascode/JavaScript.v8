@@ -48,7 +48,7 @@ namespace Microsoft.Docs.Build
 
         public ArrayEnumerator EnumerateArray(JavaScriptScope scope) => new ArrayEnumerator(scope, this);
 
-        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, params JavaScriptValue[] args)
+        public JavaScriptValue CallFunction(JavaScriptScope scope, JavaScriptValue self, params JavaScriptValue[] args)
         {
             fixed (JavaScriptValue* argv = args)
             {
@@ -56,7 +56,7 @@ namespace Microsoft.Docs.Build
             }
         }
 
-        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args)
+        public JavaScriptValue CallFunction(JavaScriptScope scope, JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args)
         {
             fixed (JavaScriptValue* argv = args)
             {
@@ -64,19 +64,16 @@ namespace Microsoft.Docs.Build
             }
         }
 
-        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue arg0)
+        public JavaScriptValue CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue arg0)
         {
             return CallFunction(scope, self, &arg0, 1);
         }
 
-        private (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, int argc)
+        private JavaScriptValue CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, int argc)
         {
-            JavaScriptValue error = default;
-            JavaScriptValue result = default;
-
-            js_function_call(scope, this, self, argv, argc, (scope, value) => error = value, (scope, value) => result = value);
-
-            return (error, result);
+            return js_function_call(scope, this, self, argv, argc, out var result) == 0
+                ? result
+                : throw new JavaScriptException(result.AsString(scope));
         }
 
         public ref struct ObjectEnumerator

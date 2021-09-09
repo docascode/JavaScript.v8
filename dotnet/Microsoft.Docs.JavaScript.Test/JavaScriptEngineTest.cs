@@ -21,16 +21,8 @@ namespace Microsoft.Docs.Build
         [InlineData("[{a:0,'b c':{d:[]}}]", "[{'a':0,'b c':{'d':[]}}]")]
         public void RunJavaScript_Succeed(string code, string output)
         {
-            var hasError = false;
-            var actualOutput = (JToken)JValue.CreateUndefined();
+            var actualOutput = _js.Run((scope, global) => ToJToken(scope, scope.RunScript(code, "test.js")));
 
-            _js.Run((scope, global) => scope.RunScript(
-                code,
-                "test.js",
-                (scope, error) => hasError = true,
-                (scope, value) => actualOutput = ToJToken(scope, value)));
-
-            Assert.False(hasError);
             Assert.Equal(output.Replace('\'', '\"'), actualOutput.ToString(Formatting.None));
         }
 
@@ -39,15 +31,17 @@ namespace Microsoft.Docs.Build
         [InlineData("foo()", "ReferenceError: foo is not defined\n    at test.js:1:1")]
         public void RunJavaScript_Error(string code, string error)
         {
-            var actualError = "";
+            var exception = Assert.Throws<JavaScriptException>(() =>
+                _js.Run((scope, global) => scope.RunScript(code, "test.js")));
 
-            _js.Run((scope, global) => scope.RunScript(
-                code,
-                "test.js",
-                (scope, error) => actualError = error.AsString(scope),
-                (scope, value) => { }));
+            Assert.Equal(error, exception.Message);
+        }
 
-            Assert.Equal(error, actualError);
+        [Fact]
+        public void RunJavaScript_ThrowsException()
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                _js.Run((scope, global) => throw new InvalidOperationException()));
         }
 
         [Theory]
@@ -55,39 +49,32 @@ namespace Microsoft.Docs.Build
         [InlineData("function(a) { return a }", "[1,true,false,0.8482,'a string',{'a':{'b':{}}}]", "[1,true,false,0.8482,'a string',{'a':{'b':{}}}]")]
         public void RunJavaScript_Call_Function_Succeed(string code, string input, string output)
         {
-            var hasError = false;
-            var actualOutput = (JToken)JValue.CreateUndefined();
+            var actualOutput = _js.Run((scope, global) => ToJToken(
+                scope,
+                scope.RunScript($"(function() {{ return {code} }})()", "test.js")
+                     .CallFunction(scope, scope.CreateUndefined(), ToJavaScriptValue(scope, JToken.Parse(input.Replace('\'', '\"'))))));
 
-            _js.Run((scope, global) =>
-            {
-                scope.RunScript(
-                    $"(function() {{ return {code} }})()",
-                    "test.js",
-                    (scope, error) => hasError = true,
-                    (scope, value) =>
-                    {
-                        Assert.Equal(JavaScriptValueType.Function, value.Type);
-                        actualOutput = ToJToken(
-                            scope,
-                            value.CallFunction(
-                                scope,
-                                scope.CreateUndefined(),
-                                ToJavaScriptValue(scope, JToken.Parse(input.Replace('\'', '\"')))).result);
-                    });
-            });
-
-            Assert.False(hasError);
             Assert.Equal(output.Replace('\'', '\"'), actualOutput.ToString(Formatting.None));
         }
 
-        [Theory]
-        [InlineData("function(foo) { return foo(true,false,'a',0) }", "{},true,false,'a',0")]
-        public void RunJavaScript_CustomFunction_Succeed(string code, string output)
+        [Fact]
+        public void RunJavaScript_SetGlobal_Succeed()
         {
-            var hasError = false;
-            var actualOutput = "";
+            var actualOutput = _js.Run((scope, global) =>
+            {
+                Assert.Equal(JavaScriptValueType.Object, global.Type);
+                global.ObjectSetProperty(scope, "foo", scope.CreateString("bar"));
 
-            _js.Run((scope, global) =>
+                return scope.RunScript("foo", "test.js").AsString(scope);
+            });
+
+            Assert.Equal("bar", actualOutput);
+        }
+
+        [Fact]
+        public void RunJavaScript_CustomFunction_Succeed()
+        {
+            var actualOutput = _js.Run((scope, global) =>
             {
                 var foo = scope.CreateFunction((scope, self, args) =>
                 {
@@ -99,41 +86,27 @@ namespace Microsoft.Docs.Build
                     return scope.CreateString(result);
                 });
 
-                scope.RunScript(
-                    $"(function() {{ return {code} }})()",
-                    "test.js",
-                    (scope, error) => hasError = true,
-                    (scope, value) =>
-                    {
-                        Assert.Equal(JavaScriptValueType.Function, value.Type);
-                        actualOutput = value.CallFunction(scope, scope.CreateUndefined(), foo).result.AsString(scope);
-                    });
+                return scope.RunScript("(function () { return function(foo) { return foo(true,false,'a',0) } })()", "test.js")
+                     .CallFunction(scope, scope.CreateUndefined(), foo)
+                     .AsString(scope);
             });
 
-            Assert.False(hasError);
-            Assert.Equal(output.Replace('\'', '\"'), actualOutput);
+            Assert.Equal("{},true,false,\"a\",0", actualOutput);
         }
 
         [Fact]
-        public void RunJavaScript_SetGlobal_Succeed()
+        public void RunJavaScript_CustomFunction_ThrowsException()
         {
-            var hasError = false;
-            var actualOutput = "";
-
-            _js.Run((scope, global) =>
+            var exception = Assert.Throws<JavaScriptException>(() => _js.Run((scope, global) =>
             {
-                Assert.Equal(JavaScriptValueType.Object, global.Type);
-                global.ObjectSetProperty(scope, "foo", scope.CreateString("bar"));
+                var foo = scope.CreateFunction((scope, self, args) => throw new Exception("my exception"));
 
-                scope.RunScript(
-                    "foo",
-                    "test.js",
-                    (scope, error) => hasError = true,
-                    (scope, value) => actualOutput = value.AsString(scope));
-            });
+                global.ObjectSetProperty(scope, "foo", foo);
 
-            Assert.False(hasError);
-            Assert.Equal("bar", actualOutput);
+                scope.RunScript("foo()", "test.js");
+            }));
+
+            Assert.Contains("my exception", exception.Message);
         }
 
         private static JavaScriptValue ToJavaScriptValue(JavaScriptScope scope, JToken value)

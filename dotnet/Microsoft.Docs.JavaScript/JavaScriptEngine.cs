@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 
 using static Microsoft.Docs.Build.NativeMethods;
@@ -14,9 +15,44 @@ namespace Microsoft.Docs.Build
             _isolate = js_isolate_new();
         }
 
-        public void Run(JavaScriptValueAction action)
+        public void Run(JavaScriptScopeAction action)
         {
-            js_run_in_context(_isolate, action);
+            ExceptionDispatchInfo exception = null;
+
+            js_run_in_context(_isolate, (scope, global) =>
+            {
+                try
+                {
+                    action(scope, global);
+                }
+                catch (Exception ex)
+                {
+                    exception = ExceptionDispatchInfo.Capture(ex);
+                }
+            });
+
+            exception?.Throw();
+        }
+
+        public T Run<T>(JavaScriptScopeAction<T> action)
+        {
+            T result = default;
+            ExceptionDispatchInfo exception = null;
+
+            js_run_in_context(_isolate, (scope, global) =>
+            {
+                try
+                {
+                    result = action(scope, global);
+                }
+                catch (Exception ex)
+                {
+                    exception = ExceptionDispatchInfo.Capture(ex);
+                }
+            });
+
+            exception?.Throw();
+            return result;
         }
 
         public void Dispose()

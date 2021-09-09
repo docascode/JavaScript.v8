@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Docs.Build
 {
-    internal unsafe delegate JavaScriptValue JsFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, nint argc);
+    internal unsafe delegate int JsFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, nint argc, out JavaScriptValue result);
 
     internal static unsafe class NativeMethods
     {
@@ -73,7 +73,7 @@ namespace Microsoft.Docs.Build
         public static extern JavaScriptValue js_function_new(JavaScriptScope scope, JsFunction callback);
 
         [DllImport(LibName)]
-        public static extern void js_function_call(JavaScriptScope scope, JavaScriptValue value, JavaScriptValue recv, JavaScriptValue* argv, nint argc, JavaScriptValueAction error, JavaScriptValueAction result);
+        public static extern int js_function_call(JavaScriptScope scope, JavaScriptValue value, JavaScriptValue recv, JavaScriptValue* argv, nint argc, out JavaScriptValue result);
 
         [DllImport(LibName)]
         public static extern IntPtr js_isolate_new();
@@ -82,10 +82,10 @@ namespace Microsoft.Docs.Build
         public static extern void js_isolate_delete(IntPtr isolate);
 
         [DllImport(LibName)]
-        public static extern void js_run_in_context(IntPtr isolate, JavaScriptValueAction callback);
+        public static extern void js_run_in_context(IntPtr isolate, JavaScriptScopeAction callback);
 
         [DllImport(LibName)]
-        public static extern void js_run_script(JavaScriptScope scope, JavaScriptValue code, JavaScriptValue filename, JavaScriptValueAction error, JavaScriptValueAction result);
+        public static extern int js_run_script(JavaScriptScope scope, JavaScriptValue code, JavaScriptValue filename, out JavaScriptValue result);
 
         public static JavaScriptValue ToJsString(JavaScriptScope scope, string value)
         {

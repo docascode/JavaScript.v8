@@ -6,8 +6,8 @@ using static Microsoft.Docs.Build.NativeMethods;
 namespace Microsoft.Docs.Build
 {
     public delegate JavaScriptValue JavaScriptFunction(JavaScriptScope scope, JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args);
-    public delegate void JavaScriptScopeAction(JavaScriptScope scope);
-    public delegate void JavaScriptValueAction(JavaScriptScope scope, JavaScriptValue value);
+    public delegate void JavaScriptScopeAction(JavaScriptScope scope, JavaScriptValue value);
+    public delegate T JavaScriptScopeAction<T>(JavaScriptScope scope, JavaScriptValue value);
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe readonly ref struct JavaScriptScope
@@ -42,16 +42,27 @@ namespace Microsoft.Docs.Build
         {
             return js_function_new(this, Callback);
 
-            JavaScriptValue Callback(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, nint argc)
+            int Callback(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, nint argc, out JavaScriptValue result)
             {
-                var args = new Span<JavaScriptValue>(argv, (int)argc);
-                return function(scope, self, args);
+                try
+                {
+                    var args = new Span<JavaScriptValue>(argv, (int)argc);
+                    result = function(scope, self, args);
+                    return 0;
+                }
+                catch (Exception ex)
+                {
+                    result = scope.CreateString(ex.ToString());
+                    return -1;
+                }
             }
         }
 
-        public void RunScript(string code, string filename, JavaScriptValueAction error, JavaScriptValueAction result)
+        public JavaScriptValue RunScript(string code, string filename)
         {
-            js_run_script(this, ToJsString(this, code), ToJsString(this, filename), error, result);
+            return js_run_script(this, ToJsString(this, code), ToJsString(this, filename), out var result) == 0
+                ? result
+                : throw new JavaScriptException(result.AsString(this));
         }
     }
 }
