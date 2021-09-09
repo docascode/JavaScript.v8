@@ -56,6 +56,14 @@ namespace Microsoft.Docs.Build
             }
         }
 
+        public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args)
+        {
+            fixed (JavaScriptValue* argv = args)
+            {
+                return CallFunction(scope, self, argv, args.Length);
+            }
+        }
+
         public (JavaScriptValue error, JavaScriptValue result) CallFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue arg0)
         {
             return CallFunction(scope, self, &arg0, 1);

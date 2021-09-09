@@ -36,17 +36,18 @@ namespace Microsoft.Docs.Build
 
         [Theory]
         [InlineData("this is buggy", "SyntaxError: Unexpected identifier")]
-        public void RunJavaScript_Compile_Error(string code, string error)
+        [InlineData("foo()", "ReferenceError: foo is not defined\n    at test.js:1:1")]
+        public void RunJavaScript_Error(string code, string error)
         {
-            var actualError = (JToken)JValue.CreateUndefined();
+            var actualError = "";
 
             _js.Run((scope, global) => scope.RunScript(
                 code,
                 "test.js",
-                (scope, error) => actualError = ToJToken(scope, error),
+                (scope, error) => actualError = error.AsString(scope),
                 (scope, value) => { }));
 
-            Assert.Contains(error, actualError);
+            Assert.Equal(error, actualError);
         }
 
         [Theory]
