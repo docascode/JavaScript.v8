@@ -8,7 +8,7 @@ use std::sync::Once;
 
 static V8_INITIALIZE: Once = Once::new();
 
-type JsRun = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>);
+type JsRun = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>, global: v8::Local<v8::Object>);
 type JsResult = extern fn(scope: &mut v8::TryCatch<v8::HandleScope>, value: v8::Local<v8::Value>);
 type JsFunction = extern fn(scope: &mut v8::HandleScope, this: v8::Local<v8::Object>, argv: *const v8::Local<v8::Value>, argc: i32) -> v8::Local<'static, v8::Value>;
 
@@ -270,8 +270,9 @@ pub extern "C" fn js_run_in_context(isolate: *mut v8::OwnedIsolate, callback: Js
     let context = v8::Context::new(handle_scope);
     let context_scope = &mut v8::ContextScope::new(handle_scope, context);
     let mut scope = v8::TryCatch::new(context_scope);
+    let global = context.global(&mut scope);
 
-    callback(&mut scope)
+    callback(&mut scope, global);
 }
 
 #[no_mangle]

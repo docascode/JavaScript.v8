@@ -1,7 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Linq;
 using Xunit;
 
 namespace Microsoft.Docs.Build
@@ -25,7 +24,7 @@ namespace Microsoft.Docs.Build
             var hasError = false;
             var actualOutput = (JToken)JValue.CreateUndefined();
 
-            _js.Run(scope => scope.RunScript(
+            _js.Run((scope, global) => scope.RunScript(
                 code,
                 "test.js",
                 (scope, error) => hasError = true,
@@ -41,7 +40,7 @@ namespace Microsoft.Docs.Build
         {
             var actualError = (JToken)JValue.CreateUndefined();
 
-            _js.Run(scope => scope.RunScript(
+            _js.Run((scope, global) => scope.RunScript(
                 code,
                 "test.js",
                 (scope, error) => actualError = ToJToken(scope, error),
@@ -58,7 +57,7 @@ namespace Microsoft.Docs.Build
             var hasError = false;
             var actualOutput = (JToken)JValue.CreateUndefined();
 
-            _js.Run(scope =>
+            _js.Run((scope, global) =>
             {
                 scope.RunScript(
                     $"(function() {{ return {code} }})()",
@@ -82,12 +81,12 @@ namespace Microsoft.Docs.Build
 
         [Theory]
         [InlineData("function(foo) { return foo(true,false,'a',0) }", "{},true,false,'a',0")]
-        public void RunJavaScript_UserFunction_Succeed(string code, string output)
+        public void RunJavaScript_CustomFunction_Succeed(string code, string output)
         {
             var hasError = false;
             var actualOutput = "";
 
-            _js.Run(scope =>
+            _js.Run((scope, global) =>
             {
                 var foo = scope.CreateFunction((scope, self, args) =>
                 {
@@ -112,6 +111,28 @@ namespace Microsoft.Docs.Build
 
             Assert.False(hasError);
             Assert.Equal(output.Replace('\'', '\"'), actualOutput);
+        }
+
+        [Fact]
+        public void RunJavaScript_SetGlobal_Succeed()
+        {
+            var hasError = false;
+            var actualOutput = "";
+
+            _js.Run((scope, global) =>
+            {
+                Assert.Equal(JavaScriptValueType.Object, global.Type);
+                global.ObjectSetProperty(scope, "foo", scope.CreateString("bar"));
+
+                scope.RunScript(
+                    "foo",
+                    "test.js",
+                    (scope, error) => hasError = true,
+                    (scope, value) => actualOutput = value.AsString(scope));
+            });
+
+            Assert.False(hasError);
+            Assert.Equal("bar", actualOutput);
         }
 
         private static JavaScriptValue ToJavaScriptValue(JavaScriptScope scope, JToken value)

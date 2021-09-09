@@ -82,7 +82,7 @@ namespace Microsoft.Docs.Build
         public static extern void js_isolate_delete(IntPtr isolate);
 
         [DllImport(LibName)]
-        public static extern void js_run_in_context(IntPtr isolate, JavaScriptScopeAction callback);
+        public static extern void js_run_in_context(IntPtr isolate, JavaScriptValueAction callback);
 
         [DllImport(LibName)]
         public static extern void js_run_script(JavaScriptScope scope, JavaScriptValue code, JavaScriptValue filename, JavaScriptValueAction error, JavaScriptValueAction result);

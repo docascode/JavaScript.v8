@@ -14,9 +14,9 @@ namespace Microsoft.Docs.Build
             _isolate = js_isolate_new();
         }
 
-        public void Run(JavaScriptScopeAction action)
+        public void Run(JavaScriptValueAction action)
         {
-            js_run_in_context(_isolate, scope => action(scope));
+            js_run_in_context(_isolate, action);
         }
 
         public void Dispose()
