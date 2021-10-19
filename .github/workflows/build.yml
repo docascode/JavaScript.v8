@@ -52,7 +52,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: nupkg
-        path: $RUNNER_TEMP/**/*.nupkg
+        path: ${{ runner.temp }}/**/*.nupkg
 
   publish:
     needs: pack

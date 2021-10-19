@@ -6,10 +6,28 @@
     <RustTarget>$(MSBuildThisFileDirectory)/../../rust/target/$(Configuration.ToLower())</RustTarget>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Description>C# binding for v8 JavaScript engine</Description>
+    <Company>Microsoft Corporation</Company>
+    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources> 
+  </PropertyGroup>
+
   <ItemGroup>
-    <None Include="$(RustTarget)/docfxjsv8.dll" Condition="Exists('$(RustTarget)/docfxjsv8.dll')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(RustTarget)/libdocfxjsv8.dylib" Condition="Exists('$(RustTarget)/libdocfxjsv8.dylib')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="$(RustTarget)/libdocfxjsv8.so" Condition="Exists('$(RustTarget)/libdocfxjsv8.so')" Pack="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="build/**" Pack="true" PackagePath="build" />
+    <Content Include="$(RustTarget)/docfxjsv8.dll" Condition="Exists('$(RustTarget)/docfxjsv8.dll')"
+      Pack="true" PackagePath="runtimes/win-x64/native" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(RustTarget)/libdocfxjsv8.dylib" Condition="Exists('$(RustTarget)/libdocfxjsv8.dylib')"
+      Pack="true" PackagePath="runtimes/osx-x64/native" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(RustTarget)/libdocfxjsv8.so" Condition="Exists('$(RustTarget)/libdocfxjsv8.so')"
+      Pack="true" PackagePath="runtimes/linux-x64/native" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
