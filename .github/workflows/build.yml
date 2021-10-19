@@ -57,11 +57,8 @@ jobs:
   publish:
     needs: pack
     runs-on: ubuntu-latest
-    if: "github.event.ref == 'refs/heads/preview'"
     steps:
     - uses: actions/download-artifact@v2
       with:
         name: nupkg
-    - run: dotnet nuget push nupkg/**/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
-      env:
-        NUGET_KEY: ${{ secrets.NUGET_KEY }}
+    - run: dotnet nuget push *.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/yufeih/index.json
