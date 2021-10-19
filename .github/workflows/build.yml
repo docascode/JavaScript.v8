@@ -1,5 +1,10 @@
 name: build
-on: push
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - 'v*.*.*'
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -47,7 +52,7 @@ jobs:
         path: rust/target/release
     - run: dotnet test -c Release
       working-directory: dotnet
-    - run: dotnet pack -c Release -o $RUNNER_TEMP
+    - run: dotnet pack -c Release -o $RUNNER_TEMP /p:Version=0.1.${{ github.run_number }}
       working-directory: dotnet
     - uses: actions/upload-artifact@v2
       with:
@@ -57,11 +62,9 @@ jobs:
   publish:
     needs: pack
     runs-on: ubuntu-latest
-    if: "github.event.ref == 'refs/heads/preview'"
+    if: "github.event.ref == 'refs/heads/live'"
     steps:
     - uses: actions/download-artifact@v2
       with:
         name: nupkg
-    - run: dotnet nuget push nupkg/**/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
-      env:
-        NUGET_KEY: ${{ secrets.NUGET_KEY }}
+    - run: dotnet nuget push *.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/yufeih/index.json
