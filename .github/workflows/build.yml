@@ -30,7 +30,7 @@ jobs:
         name: lib-${{ matrix.os }}
         path: rust/target/release/*docfxjsv8*.*
 
-  pack:
+  publish:
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -52,19 +52,9 @@ jobs:
         path: rust/target/release
     - run: dotnet test -c Release
       working-directory: dotnet
-    - run: dotnet pack -c Release -o $RUNNER_TEMP /p:Version=0.1.${{ github.run_number }}
+    - run: >
+        dotnet pack -c Release -o $RUNNER_TEMP/nuget
+        /p:Version=1.0.0-${GITHUB_REF#refs/heads/}-${GITHUB_RUN_NUMBER}
+        /p:InformationalVersion=1.0.0-${GITHUB_REF#refs/heads/}-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::8}
       working-directory: dotnet
-    - uses: actions/upload-artifact@v2
-      with:
-        name: nupkg
-        path: ${{ runner.temp }}/**/*.nupkg
-
-  publish:
-    needs: pack
-    runs-on: ubuntu-latest
-    if: "github.event.ref == 'refs/heads/live'"
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: nupkg
-    - run: dotnet nuget push *.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/yufeih/index.json
+    - run: dotnet nuget push $RUNNER_TEMP/nuget/*.nupkg --api-key ${{ secrets.GITHUB_TOKEN }} --source https://nuget.pkg.github.com/yufeih/index.json
