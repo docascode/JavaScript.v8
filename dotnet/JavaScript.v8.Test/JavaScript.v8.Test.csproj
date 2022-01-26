@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Microsoft.Docs.JavaScript/Microsoft.Docs.JavaScript.csproj" />
+    <ProjectReference Include="../JavaScript.v8/JavaScript.v8.csproj" />
   </ItemGroup>
 
   <ItemGroup>

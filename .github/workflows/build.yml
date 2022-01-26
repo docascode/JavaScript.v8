@@ -28,7 +28,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: lib-${{ matrix.os }}
-        path: rust/target/release/*docfxjsv8*.*
+        path: rust/target/release/*jsv8*.*
 
   publish:
     needs: build
@@ -57,6 +57,6 @@ jobs:
         /p:Version=1.0.0-${GITHUB_REF#refs/heads/}-${GITHUB_RUN_NUMBER}
         /p:InformationalVersion=1.0.0-${GITHUB_REF#refs/heads/}-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::8}
       working-directory: dotnet
-    - run: dotnet nuget push $RUNNER_TEMP/nuget/*.nupkg --api-key $env:NUGET_KEY --source https://api.nuget.org/v3/index.json
+    - run: dotnet nuget push $RUNNER_TEMP/nuget/*.nupkg --api-key $NUGET_KEY --source https://nuget.org
       env:
         NUGET_KEY: ${{ secrets.NUGET_KEY }}

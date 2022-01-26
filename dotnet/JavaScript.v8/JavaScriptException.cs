@@ -1,4 +1,4 @@
-﻿namespace Microsoft.Docs.Build;
+﻿namespace JavaScript.v8;
 
 public class JavaScriptException : Exception
 {

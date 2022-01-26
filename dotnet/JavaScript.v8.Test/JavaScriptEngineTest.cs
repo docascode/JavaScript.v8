@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Xunit;
 
-namespace Microsoft.Docs.Build;
+namespace JavaScript.v8;
 
 public class JavaScriptEngineTest : IClassFixture<JavaScriptEngine>
 {

@@ -1,12 +1,12 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace Microsoft.Docs.Build;
+namespace JavaScript.v8;
 
 internal unsafe delegate int JsFunction(JavaScriptScope scope, JavaScriptValue self, JavaScriptValue* argv, nint argc, out JavaScriptValue result);
 
 internal static unsafe class NativeMethods
 {
-    private const string LibName = "docfxjsv8";
+    private const string LibName = "jsv8";
 
     [DllImport(LibName)]
     public static extern JavaScriptValueType js_value_type(JavaScriptValue value);

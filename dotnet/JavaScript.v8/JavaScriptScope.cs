@@ -1,8 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 
-using static Microsoft.Docs.Build.NativeMethods;
+using static JavaScript.v8.NativeMethods;
 
-namespace Microsoft.Docs.Build;
+namespace JavaScript.v8;
 
 public delegate JavaScriptValue JavaScriptFunction(JavaScriptScope scope, JavaScriptValue self, ReadOnlySpan<JavaScriptValue> args);
 public delegate void JavaScriptScopeAction(JavaScriptScope scope, JavaScriptValue value);

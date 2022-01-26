@@ -10,8 +10,7 @@
 
   <PropertyGroup>
     <Description>C# binding for v8 JavaScript engine</Description>
-    <Company>Microsoft Corporation</Company>
-    <Copyright>© Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -20,11 +19,11 @@
 
   <ItemGroup>
     <Content Include="build/**" Pack="true" PackagePath="build" />
-    <Content Include="$(RustTarget)/docfxjsv8.dll" Condition="Exists('$(RustTarget)/docfxjsv8.dll')"
+    <Content Include="$(RustTarget)/jsv8.dll" Condition="Exists('$(RustTarget)/jsv8.dll')"
       Pack="true" PackagePath="runtimes/win-x64/native" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="$(RustTarget)/libdocfxjsv8.dylib" Condition="Exists('$(RustTarget)/libdocfxjsv8.dylib')"
+    <Content Include="$(RustTarget)/libjsv8.dylib" Condition="Exists('$(RustTarget)/libjsv8.dylib')"
       Pack="true" PackagePath="runtimes/osx-x64/native" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="$(RustTarget)/libdocfxjsv8.so" Condition="Exists('$(RustTarget)/libdocfxjsv8.so')"
+    <Content Include="$(RustTarget)/libjsv8.so" Condition="Exists('$(RustTarget)/libjsv8.so')"
       Pack="true" PackagePath="runtimes/linux-x64/native" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

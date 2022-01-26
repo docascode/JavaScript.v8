@@ -1,5 +1,5 @@
 [package]
-name = "docfxjsv8"
+name = "jsv8"
 version = "0.1.0"
 
 [lib]

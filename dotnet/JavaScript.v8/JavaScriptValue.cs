@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-using static Microsoft.Docs.Build.NativeMethods;
+using static JavaScript.v8.NativeMethods;
 
-namespace Microsoft.Docs.Build;
+namespace JavaScript.v8;
 
 public enum JavaScriptValueType
 {
