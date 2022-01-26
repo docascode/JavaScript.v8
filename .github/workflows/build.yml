@@ -57,6 +57,6 @@ jobs:
         /p:Version=1.0.0-${GITHUB_REF#refs/heads/}-${GITHUB_RUN_NUMBER}
         /p:InformationalVersion=1.0.0-${GITHUB_REF#refs/heads/}-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::8}
       working-directory: dotnet
-    - run: dotnet nuget push $RUNNER_TEMP/nuget/*.nupkg --api-key $env:NUGET_KEY --source https://nuget.org
+    - run: dotnet nuget push $RUNNER_TEMP/nuget/*.nupkg --api-key $env:NUGET_KEY --source https://api.nuget.org/v3/index.json
       env:
         NUGET_KEY: ${{ secrets.NUGET_KEY }}
