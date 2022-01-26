@@ -3,20 +3,123 @@ trigger:
 pr:
 - main
 
-pool:
-  vmImage: 'windows-latest'
+variables:
+- group: docfx-v2-pipeline-kv
+- name: version
+  value: 1.0.0
 
 jobs:
 - job: build
   strategy:
     matrix:
       linux:
-        imageName: 'ubuntu-latest'
+        os: 'ubuntu-latest'
       mac:
-        imageName: 'macOS-latest'
+        os: 'macos-latest'
       windows:
-        imageName: 'windows-latest'
+        os: 'windows-latest'
   pool:
-    vmImage: $(imageName)
+    vmImage: $(os)
 
   steps:
+  - template: install-rust.yml
+
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: 6.0.x
+
+  - script: cargo build --release
+    displayName: cargo build
+    workingDirectory: rust
+
+  - script: dotnet test -c Release
+    displayName: dotnet test
+    workingDirectory: dotnet
+  
+  - publish: rust/target/release/
+    artifact: lib-$(os)
+
+- job: publish
+  dependsOn: build
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+  pool:
+    vmImage: windows-latest
+  steps:
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: lib-ubuntu-latest
+      path: $(Build.SourcesDirectory)/rust/target/release
+      
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: lib-macos-latest
+      path: $(Build.SourcesDirectory)/rust/target/release
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: lib-windows-latest
+      path: $(Build.SourcesDirectory)/rust/target/release
+  
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: 6.0.x
+
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: 2.1.x # for ESRPCodeSigning
+
+  - script: dotnet test -c Release
+    displayName: dotnet test
+    workingDirectory: dotnet
+
+  - script: >
+      dotnet pack -c Release -o $(Agent.TempDirectory)/nuget
+      /p:Version=$(version) /p:InformationalVersion=$(version)-$(Build.SourceVersion)
+    displayName: dotnet pack
+    workingDirectory: dotnet
+    
+  - task: EsrpCodeSigning@1
+    displayName: 'Sign NuGet packages'
+    inputs:
+      ConnectedServiceName: 'CodeSigning-APEX'
+      FolderPath: '$(Agent.TempDirectory)/nuget'
+      Pattern: '*.nupkg'
+      signConfigType: inlineSignParams
+      SessionTimeout: 20
+      inlineOperation: |
+        [
+          {
+            "KeyCode" : "CP-401405",
+            "OperationSetCode" : "NuGetSign",
+            "Parameters" : [
+                {
+                  "parameterName": "TimeStamp",
+                  "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                {
+                  "parameterName": "FileDigest",
+                  "parameterValue": "/fd \"SHA256\""
+                }
+            ],
+            "ToolName" : "sign",
+            "ToolVersion" : "1.0"
+          },
+          {
+            "KeyCode" : "CP-401405",
+            "OperationSetCode" : "NuGetVerify",
+            "Parameters" : [],
+            "ToolName" : "sign",
+            "ToolVersion" : "1.0"
+          }
+        ]
+
+  - publish: $(Agent.TempDirectory)/nuget
+    artifact: nuget
+
+  - powershell: dotnet nuget push $(Agent.TempDirectory)\nuget\*.nupkg --api-key $env:NUGETAPIKEY --source https://nuget.org
+    displayName: dotnet nuget push
+    env:
+      NUGETAPIKEY: $(NugetAPIKey)
