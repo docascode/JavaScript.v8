@@ -1,10 +1,7 @@
-﻿using System;
+﻿namespace Microsoft.Docs.Build;
 
-namespace Microsoft.Docs.Build
+public class JavaScriptException : Exception
 {
-    public class JavaScriptException : Exception
-    {
-        public JavaScriptException(string message) : base(message)
-        { }
-    }
+    public JavaScriptException(string message) : base(message)
+    { }
 }
