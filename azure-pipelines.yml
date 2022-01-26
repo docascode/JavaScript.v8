@@ -1,0 +1,22 @@
+trigger:
+- main
+pr:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+jobs:
+- job: build
+  strategy:
+    matrix:
+      linux:
+        imageName: 'ubuntu-latest'
+      mac:
+        imageName: 'macOS-latest'
+      windows:
+        imageName: 'windows-latest'
+  pool:
+    vmImage: $(imageName)
+
+  steps:
